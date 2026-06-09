@@ -18,14 +18,18 @@ FB_TOKEN = os.environ["FB_PAGE_TOKEN"]
 PAGE_ID = "111199154354113"
 
 def upload_photo(image_url):
-    """Upload ảnh lên FB, trả về attachment_id"""
+    """Tải ảnh về rồi upload lên FB"""
+    img_response = requests.get(image_url)
+    if img_response.status_code != 200:
+        print("Không tải được ảnh")
+        return None
     res = requests.post(
         f"https://graph.facebook.com/v19.0/{PAGE_ID}/photos",
         data={
-            "url": image_url,
             "published": "false",
             "access_token": FB_TOKEN
-        }
+        },
+        files={"source": ("image.jpg", img_response.content, "image/jpeg")}
     )
     result = res.json()
     print(f"Upload ảnh: {result}")
@@ -69,7 +73,6 @@ def add_comment(post_id, text, image_url=None):
             )
             print(f"Comment ảnh: {res.json()}")
             return
-    # Comment text thuần
     res = requests.post(
         f"https://graph.facebook.com/v19.0/{post_id}/comments",
         data={"message": text, "access_token": FB_TOKEN}
@@ -95,7 +98,6 @@ for i, row in enumerate(rows):
     if gio_dang == current_time and status == "Chưa làm":
         print(f"Đang đăng bài: {row.get('TIÊU ĐỀ BÀI')}")
 
-        # Đăng bài
         if image_path:
             result = post_with_image(caption, image_path)
         else:
@@ -110,7 +112,6 @@ for i, row in enumerate(rows):
             sheet.update_cell(i + 4, 13, now.strftime("%Y-%m-%d %H:%M"))
             print("Đã cập nhật trạng thái!")
 
-            # Comment
             if comment_1:
                 add_comment(post_id, comment_1, comment_1_image if comment_1_image else None)
 
