@@ -19,9 +19,9 @@ PAGE_ID = "111199154354113"
 
 def upload_photo(image_url):
     """Tải ảnh về rồi upload lên FB"""
-    img_response = requests.get(image_url)
+    img_response = requests.get(image_url, headers={"User-Agent": "Mozilla/5.0"})
     if img_response.status_code != 200:
-        print("Không tải được ảnh")
+        print(f"Không tải được ảnh - status: {img_response.status_code}")
         return None
     res = requests.post(
         f"https://graph.facebook.com/v19.0/{PAGE_ID}/photos",
@@ -39,6 +39,7 @@ def post_with_image(caption, image_url):
     """Đăng bài kèm ảnh"""
     photo_id = upload_photo(image_url)
     if not photo_id:
+        print("Upload ảnh thất bại — bỏ qua bài này")
         return None
     res = requests.post(
         f"https://graph.facebook.com/v19.0/{PAGE_ID}/feed",
