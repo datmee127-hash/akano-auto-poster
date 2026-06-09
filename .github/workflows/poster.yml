@@ -1,0 +1,27 @@
+name: Auto Poster
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install gspread google-auth requests
+
+      - name: Run poster
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+        run: python poster.py
