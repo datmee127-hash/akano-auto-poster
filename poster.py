@@ -3,7 +3,7 @@ import json
 import requests
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 # Kết nối Google Sheet
 creds_json = os.environ["GOOGLE_CREDENTIALS"]
@@ -19,10 +19,11 @@ PAGE_ID = "111199154354113"
 
 # Đọc dữ liệu
 rows = sheet.get_all_records(head=3)
-now = datetime.now()
+vn_tz = timezone(timedelta(hours=7))
+now = datetime.now(vn_tz)
 current_time = now.strftime("%H:%M")
 
-print(f"Giờ hiện tại: {current_time}")
+print(f"Giờ hiện tại (VN): {current_time}")
 
 for i, row in enumerate(rows):
     gio_dang = str(row.get("GIỜ ĐĂNG", "")).strip()
