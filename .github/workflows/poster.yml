@@ -1,15 +1,18 @@
-name: Auto Poster
+name: AKANO Auto Poster
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '0 4 * * *'    # 11:00 SA giờ Việt Nam (UTC+7)
+    - cron: '0 10 * * *'   # 17:00 CH giờ Việt Nam (UTC+7)
   workflow_dispatch:
 
 jobs:
-  post:
+  run:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -17,11 +20,12 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install gspread google-auth requests
+        run: |
+          pip install gspread google-auth google-api-python-client requests
 
-      - name: Run poster
+      - name: Post to Facebook
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
-          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
-          SHEET_ID: ${{ secrets.SHEET_ID }}
+          SHEET_ID:            ${{ secrets.SHEET_ID }}
+          FB_PAGE_TOKEN:       ${{ secrets.FB_PAGE_TOKEN }}
         run: python poster.py
