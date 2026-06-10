@@ -1,10 +1,10 @@
 """
-image_gen_carousel.py — AKANO Auto Carousel Generator
-Đọc Sheet rows STATUS="Chờ tạo carousel"
-→ Gọi GPT-4o-mini sinh JSON config
-→ Chạy compose_slide.py render 4 PNGs
-→ Upload lên Drive
-→ Cập nhật IMAGE_PATH, IMAGE_PATH_2, IMAGE_PATH_3, IMAGE_PATH_4 + STATUS="Chưa làm"
+image_gen_carousel.py - AKANO Auto Carousel Generator
+Doc Sheet rows "Status anh"="carousel"
+-> Goi GPT-4o-mini sinh JSON config
+-> Chay compose_slide.py render 4 PNGs
+-> Upload len Facebook (unpublished)
+-> Cap nhat IMAGE_PATH_1..4 + "Status anh"="done"
 """
 
 import os
@@ -15,18 +15,14 @@ import gspread
 import requests
 from pathlib import Path
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
 
-# ── Secrets ───────────────────────────────────────────────────────────────────
-
-OPENAI_API_KEY  = os.environ["OPENAI_API_KEY"]
-DRIVE_FOLDER_ID = os.environ["DRIVE_FOLDER_ID"]   # Folder lưu ảnh carousel đã render
+OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+FB_TOKEN       = os.environ["FB_PAGE_TOKEN"]
+PAGE_ID        = "111199154354113"
 
 SCOPES = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
 ]
 creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
 creds      = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
@@ -35,89 +31,79 @@ gs_client   = gspread.authorize(creds)
 spreadsheet = gs_client.open_by_key(os.environ["SHEET_ID"])
 sheet       = spreadsheet.worksheet("Post")
 
-drive = build("drive", "v3", credentials=creds)
-
-# ── Đường dẫn script + assets (trong repo GitHub) ────────────────────────────
-
-REPO_ROOT     = Path(__file__).parent          # thư mục chứa script này
+REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
-# ── System prompt cho GPT ─────────────────────────────────────────────────────
-
 SYSTEM_PROMPT = """
-Bạn là creative director cho thương hiệu AKANO — kho sỉ gia dụng nhập khẩu B2B.
-Nhiệm vụ: dựa vào tiêu đề và caption bài đăng, sinh ra JSON config cho tool render carousel 4 slide.
+Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
+Nhiem vu: dua vao tieu de va caption bai dang, sinh ra JSON config cho tool render carousel 4 slide.
 
-Brand voice: Người trong nghề nói với người đang kinh doanh — thẳng, thực chiến, không hoa mỹ.
-Audience: chủ shop online, seller TMĐT, chủ kho sỉ, đại lý phân phối.
-Visual: Editorial magazine B2B — Navy #1A2D5A, Red #ED1C24, White. Headline Title Case Bold.
+Brand voice: Nguoi trong nghe noi voi nguoi dang kinh doanh -- thang, thuc chien, khong hoa my.
+Audience: chu shop online, seller TMDT, chu kho si, dai ly phan phoi.
+Visual: Editorial magazine B2B -- Navy #1A2D5A, Red #ED1C24, White. Headline Title Case Bold.
 
-JSON schema bắt buộc:
+JSON schema bat buoc:
 {
-  "topic": "<slug-không-dấu>",
+  "topic": "<slug-khong-dau>",
   "output_dir": "output/<slug>",
-  "caption": "<nội dung caption từ input, giữ nguyên>",
-  "hashtags": ["akano", "nguonhangsi", ...],
+  "caption": "<noi dung caption tu input, giu nguyen>",
+  "hashtags": ["akano", "nguonhangsi"],
   "slides": [
     {
       "layout": "L1",
       "content": {
-        "headline": "<tiêu đề lớn 3-5 từ/dòng, 2-3 dòng>",
-        "sub_hook": "<câu phụ 1-2 dòng>",
-        "body": ["<điểm 1>", "<điểm 2>", "<điểm 3>"]
+        "headline": "<tieu de lon 2-3 dong>",
+        "sub_hook": "<cau phu 1-2 dong>",
+        "body": ["<diem 1>", "<diem 2>", "<diem 3>"]
       }
     },
     {
       "layout": "L2",
       "content": {
-        "headline": "<tiêu đề slide 2>",
-        "items": ["<mục 1 — hậu quả>", "<mục 2>", "<mục 3>"]
+        "headline": "<tieu de slide 2>",
+        "items": ["<muc 1>", "<muc 2>", "<muc 3>"]
       }
     },
     {
       "layout": "L3",
       "content": {
-        "headline": "<tiêu đề slide 3>",
+        "headline": "<tieu de slide 3>",
         "cards": [
-          {"title": "<tên ngắn>", "body": "<giải thích ngắn>"},
-          {"title": "<tên ngắn>", "body": "<giải thích ngắn>", "highlight": true},
-          {"title": "<tên ngắn>", "body": "<giải thích ngắn>"},
-          {"title": "<tên ngắn>", "body": "<giải thích ngắn>"}
+          {"title": "<ten ngan>", "body": "<giai thich ngan>"},
+          {"title": "<ten ngan>", "body": "<giai thich ngan>", "highlight": true},
+          {"title": "<ten ngan>", "body": "<giai thich ngan>"},
+          {"title": "<ten ngan>", "body": "<giai thich ngan>"}
         ]
       }
     },
     {
       "layout": "L5",
       "content": {
-        "headline": "<CTA headline 2-3 dòng>",
-        "subtext": "<câu kết 1-2 dòng>",
-        "cta": "Inbox nhận tư vấn",
-        "footer": "AKANO • NGUỒN HÀNG KINH DOANH • akano.vn • 0988.198.158"
+        "headline": "<CTA headline 2-3 dong>",
+        "subtext": "<cau ket 1-2 dong>",
+        "cta": "Inbox nhan tu van",
+        "footer": "AKANO - NGUON HANG KINH DOANH - akano.vn - 0988.198.158"
       }
     }
   ]
 }
 
-Quy tắc:
-- Slide 1 (L1): Hook mạnh, gây tò mò, đụng pain point
-- Slide 2 (L2): Liệt kê vấn đề / lý do / dấu hiệu (3 items)
-- Slide 3 (L3): Phân tích sâu hơn qua 4 cards
-- Slide 4 (L5): CTA rõ, kêu gọi inbox
-- Headline Title Case, không CAPS toàn bộ
-- Chỉ trả về JSON thuần, không giải thích thêm
+Quy tac:
+- Slide 1 (L1): Hook manh, gay to mo, dung pain point
+- Slide 2 (L2): Liet ke van de / ly do (3 items)
+- Slide 3 (L3): Phan tich qua 4 cards
+- Slide 4 (L5): CTA ro, keu goi inbox
+- Headline Title Case, khong CAPS toan bo
+- Chi tra ve JSON thuan, khong giai thich them
 """.strip()
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def generate_config(tieu_de: str, caption: str) -> dict | None:
-    """Gọi GPT-4o-mini sinh JSON config carousel."""
-    user_msg = f"Tiêu đề bài: {tieu_de}\n\nCaption:\n{caption}"
-
+def generate_config(tieu_de, caption):
+    user_msg = "Tieu de bai: " + tieu_de + "\n\nCaption:\n" + caption
     res = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Authorization": "Bearer " + OPENAI_API_KEY,
             "Content-Type": "application/json",
         },
         json={
@@ -133,37 +119,27 @@ def generate_config(tieu_de: str, caption: str) -> dict | None:
     )
     data = res.json()
     if "choices" not in data:
-        print(f"[ERROR] GPT lỗi: {data}")
+        print("[ERROR] GPT loi: " + str(data))
         return None
-
     raw = data["choices"][0]["message"]["content"].strip()
-
-    # Strip markdown code block nếu GPT trả về ```json...```
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
         raw = raw.strip()
-
     try:
         return json.loads(raw)
     except json.JSONDecodeError as e:
-        print(f"[ERROR] Parse JSON thất bại: {e}\nRaw:\n{raw}")
+        print("[ERROR] Parse JSON that bai: " + str(e))
         return None
 
 
-def render_carousel(config: dict, tmp_dir: Path) -> list[Path]:
-    """
-    Lưu config JSON vào tmp_dir, chạy compose_slide.py.
-    Trả về list các file PNG đã render (sorted theo tên).
-    """
+def render_carousel(config, tmp_dir):
     config_path = tmp_dir / "carousel_config.json"
-    # Ghi output vào tmp_dir
     config["output_dir"] = str(tmp_dir / "slides")
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
-
-    print(f"[INFO] Chạy compose_slide.py với config: {config_path}")
+    print("[INFO] Chay compose_slide.py...")
     result = subprocess.run(
         ["python", str(COMPOSE_SCRIPT), "--carousel", str(config_path)],
         capture_output=True,
@@ -171,85 +147,82 @@ def render_carousel(config: dict, tmp_dir: Path) -> list[Path]:
     )
     print(result.stdout)
     if result.returncode != 0:
-        print(f"[ERROR] compose_slide.py failed:\n{result.stderr}")
+        print("[ERROR] compose_slide.py failed:\n" + result.stderr)
         return []
-
     out_dir = tmp_dir / "slides"
     pngs = sorted(out_dir.glob("slide_*.png"))
-    print(f"[INFO] Render xong: {[p.name for p in pngs]}")
+    print("[INFO] Render xong: " + str([p.name for p in pngs]))
     return pngs
 
 
-def upload_png_to_drive(png_path: Path, filename: str) -> str | None:
-    """Upload PNG lên Drive, set public, trả về direct download URL."""
-    media = MediaFileUpload(str(png_path), mimetype="image/png")
-    file  = drive.files().create(
-        body={"name": filename, "parents": [DRIVE_FOLDER_ID]},
-        media_body=media,
-        fields="id",
-    ).execute()
-    file_id = file["id"]
+def upload_to_facebook(png_path):
+    """Upload anh len Facebook as unpublished photo, tra ve 'fb:PHOTO_ID'."""
+    with open(png_path, "rb") as f:
+        res = requests.post(
+            "https://graph.facebook.com/v19.0/" + PAGE_ID + "/photos",
+            data={"published": "false", "access_token": FB_TOKEN},
+            files={"source": ("image.png", f, "image/png")},
+            timeout=60,
+        )
+    result = res.json()
+    photo_id = result.get("id")
+    if photo_id:
+        print("[OK] Upload Facebook photo: " + str(photo_id))
+        return "fb:" + str(photo_id)
+    print("[ERROR] Upload Facebook that bai: " + str(result))
+    return None
 
-    drive.permissions().create(
-        fileId=file_id,
-        body={"type": "anyone", "role": "reader"},
-    ).execute()
-
-    url = f"https://drive.google.com/uc?export=download&id={file_id}"
-    print(f"[OK] Upload Drive: {filename} → {url}")
-    return url
-
-
-# ── Main ──────────────────────────────────────────────────────────────────────
 
 records = sheet.get_all_records(head=3)
-print(f"[INFO] Đọc được {len(records)} dòng từ Sheet")
+print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
 for i, row in enumerate(records):
-    loai_anh = str(row.get("Status ảnh", "")).strip().lower()
+    loai_anh = str(row.get("Status anh", "") or row.get("Status ảnh", "")).strip().lower()
     if loai_anh != "carousel":
         continue
 
-    row_num  = i + 4
-    tieu_de  = str(row.get("TIÊU ĐỀ BÀI", "")).strip()
-    caption  = str(row.get("CAPTION ĐẦY ĐỦ", "")).strip()
-    headers  = list(row.keys())
+    row_num = i + 4
+    tieu_de = str(row.get("TIÊu ĐỀ BÀI", "") or row.get("TIEU DE BAI", "")).strip()
+    caption = str(row.get("CAPTION ĐẦY ĐỦ", "") or row.get("CAPTION DAY DU", "")).strip()
+    headers = list(row.keys())
 
-    print(f"\n[INFO] Xử lý dòng {row_num}: {tieu_de}")
+    print("\n[INFO] Xu ly dong " + str(row_num) + ": " + tieu_de[:60])
 
     if not caption:
-        print("[WARN] Caption trống, bỏ qua")
+        print("[WARN] Caption trong, bo qua")
         continue
 
-    # 1. Sinh JSON config
-    print("[INFO] Gọi GPT sinh JSON config...")
+    print("[INFO] Goi GPT sinh JSON config...")
     config = generate_config(tieu_de or caption[:80], caption)
     if not config:
-        print(f"[ERROR] Dòng {row_num}: Không sinh được config, bỏ qua")
+        print("[ERROR] Dong " + str(row_num) + ": Khong sinh duoc config, bo qua")
         continue
 
-    # 2. Render slides
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
         pngs = render_carousel(config, tmp_dir)
 
         if not pngs:
-            print(f"[ERROR] Dòng {row_num}: Render thất bại")
+            print("[ERROR] Dong " + str(row_num) + ": Render that bai")
             continue
 
-        # 3. Upload từng PNG lên Drive + cập nhật Sheet
-        topic = config.get("topic", f"row{row_num}")
         img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
 
         for idx, png_path in enumerate(pngs[:4]):
             col_name = img_cols[idx]
-            filename = f"{topic}_slide{idx+1}.png"
-            url = upload_png_to_drive(png_path, filename)
-            if url and col_name in headers:
-                sheet.update_cell(row_num, headers.index(col_name) + 1, url)
-                print(f"[OK] {col_name} → {url}")
+            fb_id = upload_to_facebook(png_path)
+            if fb_id and col_name in headers:
+                sheet.update_cell(row_num, headers.index(col_name) + 1, fb_id)
+                print("[OK] " + col_name + " = " + fb_id)
 
-    # 4. Xóa LOẠI ẢNH để không chạy lại lần sau
-    if "Status ảnh" in headers:
-        sheet.update_cell(row_num, headers.index("Status ảnh") + 1, "done")
-    print(f"[OK] Dong {row_num} da sinh anh xong!")
+    # Cap nhat Status anh -> done
+    status_col = None
+    for h in headers:
+        if h.lower().replace("ả", "a").replace(" ", "") in ["statusanh", "loaianh"]:
+            status_col = h
+            break
+    if status_col:
+        sheet.update_cell(row_num, headers.index(status_col) + 1, "done")
+    print("[OK] Dong " + str(row_num) + " da sinh anh xong!")
+
+print("\n[INFO] image_gen_carousel.py hoan tat.")
