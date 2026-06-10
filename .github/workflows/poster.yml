@@ -21,7 +21,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install gspread google-auth google-api-python-client requests
+          pip install gspread google-auth google-api-python-client requests pillow
+
+      - name: Generate carousel images
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SHEET_ID:            ${{ secrets.SHEET_ID }}
+          OPENAI_API_KEY:      ${{ secrets.OPENAI_API_KEY }}
+          DRIVE_FOLDER_ID:     ${{ secrets.DRIVE_FOLDER_ID }}
+        run: python image_gen_carousel.py
 
       - name: Post to Facebook
         env:
