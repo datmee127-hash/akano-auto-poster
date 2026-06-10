@@ -31,10 +31,17 @@ jobs:
           FB_PAGE_TOKEN:       ${{ secrets.FB_PAGE_TOKEN }}
         run: python image_gen_carousel.py
 
+      - name: Generate single post images
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SHEET_ID:            ${{ secrets.SHEET_ID }}
+          OPENAI_API_KEY:      ${{ secrets.OPENAI_API_KEY }}
+          FB_PAGE_TOKEN:       ${{ secrets.FB_PAGE_TOKEN }}
+        run: python image_gen_single.py
+
       - name: Post to Facebook
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           SHEET_ID:            ${{ secrets.SHEET_ID }}
           FB_PAGE_TOKEN:       ${{ secrets.FB_PAGE_TOKEN }}
         run: python poster.py
-  
