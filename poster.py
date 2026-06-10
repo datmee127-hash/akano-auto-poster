@@ -158,7 +158,7 @@ def post_to_facebook(caption, row):
     """
     # Thu thập tất cả image values
     image_values = []
-    v1 = str(row.get("IMAGE_PATH", "")).strip()
+    v1 = str(row.get("IMAGE_PATH_1", "") or row.get("IMAGE_PATH", "")).strip()
     if v1:
         image_values.append(v1)
     idx = 2
@@ -264,4 +264,4 @@ for i, row in enumerate(records):
         # Cập nhật Sheet
         headers = list(row.keys())
         sheet.update_cell(row_num, headers.index("STATUS") + 1, "Đã đăng")
-        sheet.update_cell(row_num, headers.index("F
+        sheet.update
