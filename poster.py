@@ -199,12 +199,16 @@ def post_to_facebook(caption, row):
         )
         return res.json().get("id")
 
-    data = {"message": caption, "access_token": FB_TOKEN}
+    # Dung multipart/form-data de brackets [0],[1]... khong bi URL-encode thanh %5B%5D
+    fields = [
+        ("message",      (None, caption)),
+        ("access_token", (None, FB_TOKEN)),
+    ]
     for n, pid in enumerate(photo_ids):
-        data["attached_media[" + str(n) + "]"] = json.dumps({"media_fbid": pid})
+        fields.append(("attached_media[" + str(n) + "]", (None, json.dumps({"media_fbid": pid}))))
 
     res    = requests.post("https://graph.facebook.com/v22.0/" + PAGE_ID + "/feed",
-                           data=data, timeout=30)
+                           files=fields, timeout=30)
     result = res.json()
     print("[INFO] Ket qua dang bai: " + str(result))
     return result.get("id")
@@ -267,7 +271,4 @@ for i, row in enumerate(records):
         sheet.update_cell(row_num, headers.index("STATUS") + 1, "Đã đăng")
         sheet.update_cell(row_num, headers.index("FACEBOOK_POST_ID") + 1, post_id)
         sheet.update_cell(row_num, headers.index("POSTED_AT") + 1,
-                          now.strftime("%Y-%m-%d %H:%M"))
-        print("[OK] Dang thanh cong! Post ID: " + post_id)
-    else:
-        print("[ERROR] Dang that bai dong " + str(row_num))
+                          now
