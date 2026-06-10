@@ -158,6 +158,8 @@ print("[INFO] Gio Viet Nam: " + current_time)
 
 records = sheet.get_all_records(head=3)
 print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
+if records:
+    print("[DEBUG] Headers: " + str(list(records[0].keys())))
 
 for i, row in enumerate(records):
     status   = str(row.get("STATUS", "")).strip()
@@ -182,6 +184,7 @@ for i, row in enumerate(records):
     caption = str(row.get("CAPTION DAY DU", "") or row.get("CAPTION ĐẦY ĐỦ", "")).strip()
 
     print("\n[INFO] Dong " + str(row_num) + " | Loai: " + loai_anh + " | " + tieu_de[:50])
+    print("[DEBUG] Row data: " + str({k: str(v)[:40] for k, v in row.items() if v}))
 
     if not caption:
         print("[WARN] Caption trong, bo qua")
