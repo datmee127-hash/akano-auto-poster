@@ -218,7 +218,7 @@ def add_comment(post_id, text, image_value):
     if text:
         data["message"] = text
 
-    img = resolve_image(image_value) if image_value else None
+    img = resolve_image(image_value)
 
     if img:
         res = requests.post(
@@ -267,7 +267,7 @@ for i, row in enumerate(records):
 
         # Cap nhat Sheet
         headers = list(row.keys())
-        sheet.update_cell(row_num, headers.index("STATUS") + 1, "Da dang")
+        sheet.update_cell(row_num, headers.index("STATUS") + 1, "Đã đăng")
         sheet.update_cell(row_num, headers.index("FACEBOOK_POST_ID") + 1, post_id)
         sheet.update_cell(row_num, headers.index("POSTED_AT") + 1,
                           now.strftime("%Y-%m-%d %H:%M"))
