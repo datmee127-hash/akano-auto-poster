@@ -186,6 +186,12 @@ for i, row in enumerate(records):
     caption = str(row.get("CAPTION ĐẦY ĐỦ", "") or row.get("CAPTION DAY DU", "")).strip()
     headers = list(row.keys())
 
+    # Skip neu anh da duoc gen roi (IMAGE_PATH_1 da co gia tri)
+    existing_img = str(row.get("IMAGE_PATH_1", "")).strip()
+    if existing_img:
+        print("[SKIP] Dong " + str(row_num) + ": anh da co (" + existing_img[:30] + "...), bo qua")
+        continue
+
     print("\n[INFO] Xu ly dong " + str(row_num) + ": " + tieu_de[:60])
 
     if not caption:
@@ -215,14 +221,7 @@ for i, row in enumerate(records):
                 sheet.update_cell(row_num, headers.index(col_name) + 1, fb_id)
                 print("[OK] " + col_name + " = " + fb_id)
 
-    # Cap nhat Status anh -> done
-    status_col = None
-    for h in headers:
-        if h.lower().replace("ả", "a").replace(" ", "") in ["statusanh", "loaianh"]:
-            status_col = h
-            break
-    if status_col:
-        sheet.update_cell(row_num, headers.index(status_col) + 1, "done")
     print("[OK] Dong " + str(row_num) + " da sinh anh xong!")
 
 print("\n[INFO] image_gen_carousel.py hoan tat.")
+                                        
