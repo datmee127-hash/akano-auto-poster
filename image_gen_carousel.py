@@ -3,11 +3,13 @@ image_gen_carousel.py - AKANO Auto Carousel Generator
 Doc Sheet rows "Status anh"="carousel"
 -> Goi GPT-4o-mini sinh JSON config
 -> Chay compose_slide.py render 4 PNGs
--> Upload len Facebook (unpublished)
--> Cap nhat IMAGE_PATH_1..4 + "Status anh"="done"
+-> Upload PNG len Google Drive (public URL, khong expire)
+-> Cap nhat IMAGE_PATH_1..4 voi Drive URL
+-> poster.py se download + re-upload len FB luc dang bai
 """
 
 import os
+import io
 import json
 import subprocess
 import tempfile
@@ -15,14 +17,15 @@ import gspread
 import requests
 from pathlib import Path
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-FB_TOKEN       = os.environ["FB_PAGE_TOKEN"]
-PAGE_ID        = "111199154354113"
 
 SCOPES = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
 ]
 creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
 creds      = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
@@ -31,8 +34,31 @@ gs_client   = gspread.authorize(creds)
 spreadsheet = gs_client.open_by_key(os.environ["SHEET_ID"])
 sheet       = spreadsheet.worksheet("Post")
 
+drive = build("drive", "v3", credentials=creds)
+
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
+
+CAROUSEL_FOLDER_NAME = "AKANO-CAROUSEL-OUTPUT"
+
+def get_or_create_carousel_folder():
+    result = drive.files().list(
+        q=f"name='{CAROUSEL_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+        fields="files(id)"
+    ).execute()
+    files = result.get("files", [])
+    if files:
+        return files[0]["id"]
+    folder = drive.files().create(
+        body={"name": CAROUSEL_FOLDER_NAME, "mimeType": "application/vnd.google-apps.folder"},
+        fields="id"
+    ).execute()
+    fid = folder["id"]
+    drive.permissions().create(fileId=fid, body={"role": "reader", "type": "anyone"}).execute()
+    print("[INFO] Tao folder Drive: " + CAROUSEL_FOLDER_NAME + " id=" + fid)
+    return fid
+
+CAROUSEL_FOLDER_ID = get_or_create_carousel_folder()
 
 SYSTEM_PROMPT = """
 Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
@@ -155,22 +181,20 @@ def render_carousel(config, tmp_dir):
     return pngs
 
 
-def upload_to_facebook(png_path):
-    """Upload anh len Facebook as unpublished photo, tra ve 'fb:PHOTO_ID'."""
+def upload_to_drive(png_path, filename):
+    """Upload PNG len Google Drive, tra ve direct download URL (khong expire)."""
     with open(png_path, "rb") as f:
-        res = requests.post(
-            "https://graph.facebook.com/v22.0/" + PAGE_ID + "/photos",
-            data={"published": "false", "access_token": FB_TOKEN},
-            files={"source": ("image.png", f, "image/png")},
-            timeout=60,
-        )
-    result = res.json()
-    photo_id = result.get("id")
-    if photo_id:
-        print("[OK] Upload Facebook photo: " + str(photo_id))
-        return "fb:" + str(photo_id)
-    print("[ERROR] Upload Facebook that bai: " + str(result))
-    return None
+        media = MediaIoBaseUpload(io.BytesIO(f.read()), mimetype="image/png", resumable=False)
+    file_meta = {"name": filename, "parents": [CAROUSEL_FOLDER_ID]}
+    uploaded = drive.files().create(body=file_meta, media_body=media, fields="id").execute()
+    fid = uploaded.get("id")
+    if not fid:
+        print("[ERROR] Upload Drive that bai: " + str(uploaded))
+        return None
+    drive.permissions().create(fileId=fid, body={"role": "reader", "type": "anyone"}).execute()
+    url = "https://drive.google.com/uc?export=download&id=" + fid
+    print("[OK] Upload Drive: " + url)
+    return url
 
 
 records = sheet.get_all_records(head=3)
@@ -186,41 +210,10 @@ for i, row in enumerate(records):
     caption = str(row.get("CAPTION ĐẦY ĐỦ", "") or row.get("CAPTION DAY DU", "")).strip()
     headers = list(row.keys())
 
-    # Skip neu anh da duoc gen roi (IMAGE_PATH_1 da co gia tri)
+    # Skip neu IMAGE_PATH_1 da la Drive URL (http...)
+    # Neu la fb:... (het han) hoac trong -> tai generate
     existing_img = str(row.get("IMAGE_PATH_1", "")).strip()
-    if existing_img:
-        print("[SKIP] Dong " + str(row_num) + ": anh da co (" + existing_img[:30] + "...), bo qua")
+    if existing_img and existing_img.startswith("http"):
+        print("[SKIP] Dong " + str(row_num) + ": da co Drive URL, bo qua")
         continue
-
-    print("\n[INFO] Xu ly dong " + str(row_num) + ": " + tieu_de[:60])
-
-    if not caption:
-        print("[WARN] Caption trong, bo qua")
-        continue
-
-    print("[INFO] Goi GPT sinh JSON config...")
-    config = generate_config(tieu_de or caption[:80], caption)
-    if not config:
-        print("[ERROR] Dong " + str(row_num) + ": Khong sinh duoc config, bo qua")
-        continue
-
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_dir = Path(tmp)
-        pngs = render_carousel(config, tmp_dir)
-
-        if not pngs:
-            print("[ERROR] Dong " + str(row_num) + ": Render that bai")
-            continue
-
-        img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
-
-        for idx, png_path in enumerate(pngs[:4]):
-            col_name = img_cols[idx]
-            fb_id = upload_to_facebook(png_path)
-            if fb_id and col_name in headers:
-                sheet.update_cell(row_num, headers.index(col_name) + 1, fb_id)
-                print("[OK] " + col_name + " = " + fb_id)
-
-    print("[OK] Dong " + str(row_num) + " da sinh anh xong!")
-
-print("\n[INFO] image_gen_carousel.py hoan tat.")
+    if exist
