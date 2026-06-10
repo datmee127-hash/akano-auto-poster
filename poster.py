@@ -15,7 +15,7 @@ PAGE_ID  = "111199154354113"
 vn_tz        = timezone(timedelta(hours=7))
 now          = datetime.now(vn_tz)
 current_time = now.strftime("%H:%M")
-print(f"[INFO] Giờ Việt Nam hiện tại: {current_time}")
+print(f"[INFO] Gio Viet Nam hien tai: {current_time}")
 
 # ── Google Auth ───────────────────────────────────────────────────────────────
 
@@ -35,63 +35,62 @@ sheet       = spreadsheet.worksheet("Post")
 # Google Drive
 drive = build("drive", "v3", credentials=creds)
 
-# ── Load folder map từ tab FOLDERS ────────────────────────────────────────────
+# ── Load folder map tu tab FOLDERS ────────────────────────────────────────────
 
 def load_folder_map():
     try:
         folders_sheet = spreadsheet.worksheet("FOLDERS")
         records = folders_sheet.get_all_records()
-        return {str(r.get("TÊN", "")).strip().lower(): str(r.get("FOLDER_ID", "")).strip()
-                for r in records if r.get("TÊN") and r.get("FOLDER_ID")}
+        return {str(r.get("TEN", "") or r.get("TÊN", "")).strip().lower(): str(r.get("FOLDER_ID", "")).strip()
+                for r in records if r.get("FOLDER_ID")}
     except Exception as e:
-        print(f"[WARN] Không đọc được tab FOLDERS: {e}")
+        print("[WARN] Khong doc duoc tab FOLDERS: " + str(e))
         return {}
 
 FOLDER_MAP = load_folder_map()
-print(f"[INFO] Folder map: {FOLDER_MAP}")
+print("[INFO] Folder map: " + str(FOLDER_MAP))
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def get_direct_url(url):
-    """Convert Google Drive share link → direct download URL."""
+    """Convert Google Drive share link -> direct download URL."""
     if url and "drive.google.com" in url:
         match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', url)
         if match:
-            return f"https://drive.google.com/uc?export=download&id={match.group(1)}"
+            return "https://drive.google.com/uc?export=download&id=" + match.group(1)
     return url
 
 
 def random_image_from_folder(folder_name):
-    """List ảnh trong Drive folder → random pick 1 → trả về bytes."""
+    """List anh trong Drive folder -> random pick 1 -> tra ve bytes."""
     key       = folder_name.strip().lower()
     folder_id = FOLDER_MAP.get(key)
     if not folder_id:
-        print(f"[ERROR] Không tìm thấy folder '{folder_name}' trong FOLDERS tab")
+        print("[ERROR] Khong tim thay folder '" + folder_name + "' trong FOLDERS tab")
         return None
 
     result = drive.files().list(
-        q=f"'{folder_id}' in parents and mimeType contains 'image/' and trashed=false",
+        q="'" + folder_id + "' in parents and mimeType contains 'image/' and trashed=false",
         fields="files(id, name)",
         pageSize=100,
     ).execute()
 
     files = result.get("files", [])
     if not files:
-        print(f"[ERROR] Folder '{folder_name}' không có ảnh")
+        print("[ERROR] Folder '" + folder_name + "' khong co anh")
         return None
 
     chosen = random.choice(files)
-    print(f"[INFO] Random pick từ '{folder_name}': {chosen['name']}")
+    print("[INFO] Random pick tu '" + folder_name + "': " + chosen["name"])
 
-    # Download file từ Drive (dùng Drive API, không cần public link)
     file_bytes = drive.files().get_media(fileId=chosen["id"]).execute()
     return file_bytes
 
 
 def download_image(url):
-    """Download ảnh từ URL (hỗ trợ Google Drive share link)."""
+    """Download anh tu URL (ho tro Google Drive share link)."""
     direct = get_direct_url(url)
-    print(f"[INFO] Download ảnh: {direct}")
+    print("[INFO] Download anh: " + direct)
 
     session  = requests.Session()
     headers  = {"User-Agent": "Mozilla/5.0"}
@@ -101,28 +100,28 @@ def download_image(url):
     if response.status_code == 200 and "text/html" in response.headers.get("Content-Type", ""):
         confirm = re.search(r'confirm=([0-9A-Za-z_\-]+)', response.text)
         if confirm:
-            response = session.get(f"{direct}&confirm={confirm.group(1)}",
+            response = session.get(direct + "&confirm=" + confirm.group(1),
                                    headers=headers, allow_redirects=True, timeout=30)
 
     if response.status_code != 200:
-        print(f"[ERROR] Download thất bại - HTTP {response.status_code}")
+        print("[ERROR] Download that bai - HTTP " + str(response.status_code))
         return None
 
-    print(f"[INFO] Download OK - {len(response.content)} bytes")
+    print("[INFO] Download OK - " + str(len(response.content)) + " bytes")
     return response.content
 
 
 def resolve_image(value):
     """
-    value là URL → download từ URL
-    value là tên folder → random pick từ folder đó
-    value trống → random folder bất kỳ trong FOLDER_MAP
-    Trả về image bytes hoặc None.
+    value la URL -> download tu URL
+    value la ten folder -> random pick tu folder do
+    value trong -> random folder bat ky trong FOLDER_MAP
+    Tra ve image bytes hoac None.
     """
     if not value:
         if FOLDER_MAP:
             folder_name = random.choice(list(FOLDER_MAP.keys()))
-            print(f"[INFO] Không có folder chỉ định, random: {folder_name}")
+            print("[INFO] Khong co folder chi dinh, random: " + folder_name)
             return random_image_from_folder(folder_name)
         return None
     if value.startswith("http"):
@@ -131,11 +130,11 @@ def resolve_image(value):
 
 
 def upload_photo(image_bytes, published=False):
-    """Upload ảnh lên Facebook, trả về photo_id."""
+    """Upload anh len Facebook, tra ve photo_id."""
     if not image_bytes:
         return None
     res = requests.post(
-        f"https://graph.facebook.com/v19.0/{PAGE_ID}/photos",
+        "https://graph.facebook.com/v19.0/" + PAGE_ID + "/photos",
         data={"published": "true" if published else "false", "access_token": FB_TOKEN},
         files={"source": ("image.jpg", image_bytes, "image/jpeg")},
         timeout=30,
@@ -143,48 +142,48 @@ def upload_photo(image_bytes, published=False):
     result = res.json()
     photo_id = result.get("id")
     if photo_id:
-        print(f"[OK] Upload ảnh Facebook: {photo_id}")
+        print("[OK] Upload anh Facebook: " + str(photo_id))
     else:
-        print(f"[ERROR] Upload ảnh thất bại: {result}")
+        print("[ERROR] Upload anh that bai: " + str(result))
     return photo_id
 
 
 def post_to_facebook(caption, row):
     """
-    Đăng bài. Tự động detect:
-    - Không có ảnh → text thuần
-    - 1 ảnh → single image
-    - Nhiều ảnh (IMAGE_PATH_2 trở lên) → carousel
+    Dang bai. Tu dong detect:
+    - Khong co anh -> text thuan
+    - 1 anh -> single image
+    - Nhieu anh (IMAGE_PATH_2 tro len) -> carousel
     """
-    # Thu thập tất cả image values
+    # Thu thap tat ca image values
     image_values = []
     v1 = str(row.get("IMAGE_PATH_1", "") or row.get("IMAGE_PATH", "")).strip()
     if v1:
         image_values.append(v1)
     idx = 2
     while True:
-        v = str(row.get(f"IMAGE_PATH_{idx}", "")).strip()
+        v = str(row.get("IMAGE_PATH_" + str(idx), "")).strip()
         if not v:
             break
         image_values.append(v)
         idx += 1
 
     if not image_values:
-        # Text thuần
+        # Text thuan
         res = requests.post(
-            f"https://graph.facebook.com/v19.0/{PAGE_ID}/feed",
+            "https://graph.facebook.com/v19.0/" + PAGE_ID + "/feed",
             data={"message": caption, "access_token": FB_TOKEN},
             timeout=30,
         )
         return res.json().get("id")
 
-    # Upload tất cả ảnh
+    # Upload tat ca anh
     photo_ids = []
     for val in image_values:
-        # Nếu là fb:PHOTO_ID (đã pre-upload bởi image_gen_carousel.py) → dùng luôn
+        # Neu la fb:PHOTO_ID (da pre-upload boi image_gen_carousel.py) -> dung luon
         if val.startswith("fb:"):
             photo_ids.append(val[3:])
-            print(f"[INFO] Dùng pre-uploaded photo: {val[3:]}")
+            print("[INFO] Dung pre-uploaded photo: " + val[3:])
         else:
             img = resolve_image(val)
             pid = upload_photo(img, published=False)
@@ -192,9 +191,9 @@ def post_to_facebook(caption, row):
                 photo_ids.append(pid)
 
     if not photo_ids:
-        print("[WARN] Không upload được ảnh nào, fallback text thuần")
+        print("[WARN] Khong upload duoc anh nao, fallback text thuan")
         res = requests.post(
-            f"https://graph.facebook.com/v19.0/{PAGE_ID}/feed",
+            "https://graph.facebook.com/v19.0/" + PAGE_ID + "/feed",
             data={"message": caption, "access_token": FB_TOKEN},
             timeout=30,
         )
@@ -202,17 +201,17 @@ def post_to_facebook(caption, row):
 
     data = {"message": caption, "access_token": FB_TOKEN}
     for n, pid in enumerate(photo_ids):
-        data[f"attached_media[{n}]"] = json.dumps({"media_fbid": pid})
+        data["attached_media[" + str(n) + "]"] = json.dumps({"media_fbid": pid})
 
-    res    = requests.post(f"https://graph.facebook.com/v19.0/{PAGE_ID}/feed",
+    res    = requests.post("https://graph.facebook.com/v19.0/" + PAGE_ID + "/feed",
                            data=data, timeout=30)
     result = res.json()
-    print(f"[INFO] Kết quả đăng bài: {result}")
+    print("[INFO] Ket qua dang bai: " + str(result))
     return result.get("id")
 
 
 def add_comment(post_id, text, image_value):
-    """Comment vào bài đăng (text + ảnh tùy chọn)."""
+    """Comment vao bai dang (text + anh tuy chon)."""
     if not text and not image_value:
         return
     data = {"access_token": FB_TOKEN}
@@ -223,43 +222,55 @@ def add_comment(post_id, text, image_value):
 
     if img:
         res = requests.post(
-            f"https://graph.facebook.com/v19.0/{post_id}/comments",
+            "https://graph.facebook.com/v19.0/" + post_id + "/comments",
             data=data,
             files={"source": ("image.jpg", img, "image/jpeg")},
             timeout=30,
         )
     else:
         res = requests.post(
-            f"https://graph.facebook.com/v19.0/{post_id}/comments",
+            "https://graph.facebook.com/v19.0/" + post_id + "/comments",
             data=data,
             timeout=30,
         )
-    print(f"[INFO] Comment: {res.json()}")
+    print("[INFO] Comment: " + str(res.json()))
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 records = sheet.get_all_records(head=3)
-print(f"[INFO] Đọc được {len(records)} dòng từ Sheet")
+print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
 for i, row in enumerate(records):
-    gio_dang = str(row.get("GIỜ ĐĂNG", "")).strip()
+    gio_dang = str(row.get("GIO DANG", "") or row.get("GIỜ ĐĂNG", "")).strip()
     status   = str(row.get("STATUS", "")).strip()
 
-    # Cho phép "Test ngay" để bypass kiểm tra giờ
+    # Cho phep "Test ngay" de bypass kiem tra gio
     if status == "Test ngay":
         pass
-    elif gio_dang != current_time or status != "Chưa làm":
+    elif gio_dang != current_time or status != "Chua lam" and status != "Chưa làm":
         continue
 
     row_num = i + 4
-    caption = str(row.get("CAPTION ĐẦY ĐỦ", "")).strip()
-    print(f"\n[INFO] Xử lý dòng {row_num}: {caption[:60]}...")
+    caption = str(row.get("CAPTION DAY DU", "") or row.get("CAPTION ĐẦY ĐỦ", "")).strip()
+    print("\n[INFO] Xu ly dong " + str(row_num) + ": " + caption[:60] + "...")
 
     post_id = post_to_facebook(caption, row)
 
     if post_id:
         # 3 comments
         for idx in range(1, 4):
-            c_text = str(row.get(f"COMMENT_{idx}", "")).strip() or None
-            c_img  = str(row.get(f"COMMENT_{idx}_IMAGE", "")).str
+            c_text = str(row.get("COMMENT_" + str(idx), "")).strip() or None
+            c_img  = str(row.get("COMMENT_" + str(idx) + "_IMAGE", "")).strip() or None
+            if c_text or c_img:
+                add_comment(post_id, c_text, c_img)
+
+        # Cap nhat Sheet
+        headers = list(row.keys())
+        sheet.update_cell(row_num, headers.index("STATUS") + 1, "Da dang")
+        sheet.update_cell(row_num, headers.index("FACEBOOK_POST_ID") + 1, post_id)
+        sheet.update_cell(row_num, headers.index("POSTED_AT") + 1,
+                          now.strftime("%Y-%m-%d %H:%M"))
+        print("[OK] Dang thanh cong! Post ID: " + post_id)
+    else:
+        print("[ERROR] Dang that bai dong " + str(row_num))
