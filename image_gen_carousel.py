@@ -40,7 +40,7 @@ drive = build("drive", "v3", credentials=creds)
 # ── Đường dẫn script + assets (trong repo GitHub) ────────────────────────────
 
 REPO_ROOT     = Path(__file__).parent          # thư mục chứa script này
-COMPOSE_SCRIPT = REPO_ROOT / "automation" / "compose_slide.py"
+COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
 # ── System prompt cho GPT ─────────────────────────────────────────────────────
 
@@ -254,3 +254,4 @@ for i, row in enumerate(records):
     print(f"[OK] Dòng {row_num} sẵn sàng đăng!")
 
 print("\n[INFO] image_gen_carousel.py hoàn tất.")
+               
