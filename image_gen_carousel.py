@@ -159,7 +159,7 @@ def upload_to_facebook(png_path):
     """Upload anh len Facebook as unpublished photo, tra ve 'fb:PHOTO_ID'."""
     with open(png_path, "rb") as f:
         res = requests.post(
-            "https://graph.facebook.com/v19.0/" + PAGE_ID + "/photos",
+            "https://graph.facebook.com/v22.0/" + PAGE_ID + "/photos",
             data={"published": "false", "access_token": FB_TOKEN},
             files={"source": ("image.png", f, "image/png")},
             timeout=60,

@@ -134,7 +134,7 @@ def upload_photo(image_bytes, published=False):
     if not image_bytes:
         return None
     res = requests.post(
-        "https://graph.facebook.com/v19.0/" + PAGE_ID + "/photos",
+        "https://graph.facebook.com/v22.0/" + PAGE_ID + "/photos",
         data={"published": "true" if published else "false", "access_token": FB_TOKEN},
         files={"source": ("image.jpg", image_bytes, "image/jpeg")},
         timeout=30,
@@ -171,7 +171,7 @@ def post_to_facebook(caption, row):
     if not image_values:
         # Text thuan
         res = requests.post(
-            "https://graph.facebook.com/v19.0/" + PAGE_ID + "/feed",
+            "https://graph.facebook.com/v22.0/" + PAGE_ID + "/feed",
             data={"message": caption, "access_token": FB_TOKEN},
             timeout=30,
         )
@@ -193,7 +193,7 @@ def post_to_facebook(caption, row):
     if not photo_ids:
         print("[WARN] Khong upload duoc anh nao, fallback text thuan")
         res = requests.post(
-            "https://graph.facebook.com/v19.0/" + PAGE_ID + "/feed",
+            "https://graph.facebook.com/v22.0/" + PAGE_ID + "/feed",
             data={"message": caption, "access_token": FB_TOKEN},
             timeout=30,
         )
@@ -203,7 +203,7 @@ def post_to_facebook(caption, row):
     for n, pid in enumerate(photo_ids):
         data["attached_media[" + str(n) + "]"] = json.dumps({"media_fbid": pid})
 
-    res    = requests.post("https://graph.facebook.com/v19.0/" + PAGE_ID + "/feed",
+    res    = requests.post("https://graph.facebook.com/v22.0/" + PAGE_ID + "/feed",
                            data=data, timeout=30)
     result = res.json()
     print("[INFO] Ket qua dang bai: " + str(result))
@@ -220,14 +220,14 @@ def add_comment(post_id, text, image_value):
 
     if img:
         res = requests.post(
-            "https://graph.facebook.com/v19.0/" + post_id + "/comments",
+            "https://graph.facebook.com/v22.0/" + post_id + "/comments",
             data=data,
             files={"source": ("image.jpg", img, "image/jpeg")},
             timeout=30,
         )
     else:
         res = requests.post(
-            "https://graph.facebook.com/v19.0/" + post_id + "/comments",
+            "https://graph.facebook.com/v22.0/" + post_id + "/comments",
             data=data,
             timeout=30,
         )
