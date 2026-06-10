@@ -87,10 +87,10 @@ OUTPUT_SCALE = 0.75
 # Safe zone — 2x for 1800-wide canvas
 SAFE = 100
 # Pill dimensions — scaled 2x for 1800-wide canvas (~22% width).
-LOGO_PILL_W = 400
-LOGO_PILL_H = 250
-LOGO_PILL_PADDING = 14
-LOGO_PILL_RADIUS = 28
+LOGO_PILL_W = 260
+LOGO_PILL_H = 130
+LOGO_PILL_PADDING = 12
+LOGO_PILL_RADIUS = 20
 
 # ============================================================================
 # HELPERS
@@ -290,8 +290,15 @@ def render_L1(content):
     draw_accent_line(draw, SAFE + 40, SAFE + 180, length=110, thickness=10, fill=RED)
 
     # Main hook — Bold, Title Case, white
-    explicit_white = headline.split("\n")
-    f_head = fit_lines_font(explicit_white, FONT_BOLD, canvas_w - 2 * SAFE - 80, [108, 96, 84, 76, 68], draw)
+    # Gioi han width tranh vung logo pill top-right
+    text_max_w = canvas_w - 2 * SAFE - LOGO_PILL_W - 100
+    # Auto-wrap neu headline khong co explicit newline
+    if "\n" in headline:
+        explicit_white = headline.split("\n")
+    else:
+        f_try = font(FONT_BOLD, 96)
+        explicit_white = wrap_text(headline, f_try, text_max_w, draw)
+    f_head = fit_lines_font(explicit_white, FONT_BOLD, text_max_w, [108, 96, 84, 76, 68], draw)
     line_h = int(font_size_of(f_head) * 1.14)
     y = SAFE + 220
     for ln in explicit_white:
@@ -299,8 +306,12 @@ def render_L1(content):
         y += line_h
 
     # Sub-hook — Bold, red, slightly smaller than main hook
-    explicit_red = sub_hook.split("\n")
-    f_sub = fit_lines_font(explicit_red, FONT_BOLD, canvas_w - 2 * SAFE - 80, [88, 80, 72, 64, 56], draw)
+    if "\n" in sub_hook:
+        explicit_red = sub_hook.split("\n")
+    else:
+        f_try_red = font(FONT_BOLD, 80)
+        explicit_red = wrap_text(sub_hook, f_try_red, text_max_w, draw)
+    f_sub = fit_lines_font(explicit_red, FONT_BOLD, text_max_w, [88, 80, 72, 64, 56], draw)
     sub_line_h = int(font_size_of(f_sub) * 1.14)
     y += 32  # gap between white and red blocks
     for ln in explicit_red:
