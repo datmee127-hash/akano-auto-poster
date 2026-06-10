@@ -181,10 +181,15 @@ def post_to_facebook(caption, row):
     # Upload tất cả ảnh
     photo_ids = []
     for val in image_values:
-        img = resolve_image(val)
-        pid = upload_photo(img, published=False)
-        if pid:
-            photo_ids.append(pid)
+        # Nếu là fb:PHOTO_ID (đã pre-upload bởi image_gen_carousel.py) → dùng luôn
+        if val.startswith("fb:"):
+            photo_ids.append(val[3:])
+            print(f"[INFO] Dùng pre-uploaded photo: {val[3:]}")
+        else:
+            img = resolve_image(val)
+            pid = upload_photo(img, published=False)
+            if pid:
+                photo_ids.append(pid)
 
     if not photo_ids:
         print("[WARN] Không upload được ảnh nào, fallback text thuần")
@@ -257,11 +262,4 @@ for i, row in enumerate(records):
         # 3 comments
         for idx in range(1, 4):
             c_text = str(row.get(f"COMMENT_{idx}", "")).strip() or None
-            c_img  = str(row.get(f"COMMENT_{idx}_IMAGE", "")).strip() or None
-            if c_text or c_img:
-                add_comment(post_id, c_text, c_img)
-
-        # Cập nhật Sheet
-        headers = list(row.keys())
-        sheet.update_cell(row_num, headers.index("STATUS") + 1, "Đã đăng")
-        sheet.update
+            c_img  = str(row.get(f"COMMENT_{idx}_IMAGE", "")).str
