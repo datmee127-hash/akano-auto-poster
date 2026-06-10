@@ -271,4 +271,7 @@ for i, row in enumerate(records):
         sheet.update_cell(row_num, headers.index("STATUS") + 1, "Đã đăng")
         sheet.update_cell(row_num, headers.index("FACEBOOK_POST_ID") + 1, post_id)
         sheet.update_cell(row_num, headers.index("POSTED_AT") + 1,
-                          now
+                          now.strftime("%Y-%m-%d %H:%M"))
+        print("[OK] Dang thanh cong! Post ID: " + post_id)
+    else:
+        print("[ERROR] Dang that bai dong " + str(row_num))
