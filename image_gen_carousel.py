@@ -206,7 +206,7 @@ records = sheet.get_all_records(head=3)
 print(f"[INFO] Đọc được {len(records)} dòng từ Sheet")
 
 for i, row in enumerate(records):
-    loai_anh = str(row.get("LOẠI ẢNH", "")).strip().lower()
+    loai_anh = str(row.get("Status ảnh", "")).strip().lower()
     if loai_anh != "carousel":
         continue
 
@@ -239,7 +239,7 @@ for i, row in enumerate(records):
 
         # 3. Upload từng PNG lên Drive + cập nhật Sheet
         topic = config.get("topic", f"row{row_num}")
-        img_cols = ["IMAGE_PATH", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
+        img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
 
         for idx, png_path in enumerate(pngs[:4]):
             col_name = img_cols[idx]
@@ -250,6 +250,6 @@ for i, row in enumerate(records):
                 print(f"[OK] {col_name} → {url}")
 
     # 4. Xóa LOẠI ẢNH để không chạy lại lần sau
-    if "LOẠI ẢNH" in headers:
-        sheet.update_cell(row_num, headers.index("LOẠI ẢNH") + 1, "done")
-    print(f"[OK] Dòng {row_num} đã si
+    if "Status ảnh" in headers:
+        sheet.update_cell(row_num, headers.index("Status ảnh") + 1, "done")
+    print(f"[OK] Dòng {row_num} đã 
