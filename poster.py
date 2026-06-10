@@ -211,9 +211,7 @@ def post_to_facebook(caption, row):
 
 
 def add_comment(post_id, text, image_value):
-    """Comment vao bai dang (text + anh tuy chon)."""
-    if not text and not image_value:
-        return
+    """Comment vao bai dang (text + anh tuy chon). Neu khong co anh chi dinh, tu dong random anh tu folder."""
     data = {"access_token": FB_TOKEN}
     if text:
         data["message"] = text
@@ -262,8 +260,7 @@ for i, row in enumerate(records):
         for idx in range(1, 4):
             c_text = str(row.get("COMMENT_" + str(idx), "")).strip() or None
             c_img  = str(row.get("COMMENT_" + str(idx) + "_IMAGE", "")).strip() or None
-            if c_text or c_img:
-                add_comment(post_id, c_text, c_img)
+            add_comment(post_id, c_text, c_img)
 
         # Cap nhat Sheet
         headers = list(row.keys())
