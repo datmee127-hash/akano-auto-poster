@@ -1,10 +1,5 @@
 """
 image_gen.py - AKANO Auto Image Generator (unified)
-Doc tung row trong Sheet:
-  - Skip neu STATUS = "Da dang"
-  - Chi xu ly row khop gio dang hoac "Test ngay"
-  - Doc "Status anh": carousel -> 4 anh, singer-post -> 1 anh
-  - Upload len Facebook (fb:ID), poster.py se dung luc dang bai
 """
 
 import os
@@ -36,55 +31,62 @@ sheet       = spreadsheet.worksheet("Post")
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
-CAROUSEL_PROMPT = (
-    "Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.\n"
-    "Sinh JSON config cho carousel 4 slide. Brand: Navy #1A2D5A, Red #ED1C24. Headline Title Case.\n\n"
-    "JSON schema:\n"
-    '{"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],'
-    '"slides":['
-    '{"layout":"L1","content":{"headline":"<2-3 dong>","sub_hook":"<1-2 dong>","body":["<d1>","<d2>","<d3>"]}},'
-    '{"layout":"L2","content":{"headline":"<title>","items":["<i1>","<i2>","<i3>"]}},'
-    '{"layout":"L3","content":{"headline":"<title>","cards":['
-    '{"title":"<t>","body":"<b>"},{"title":"<t>","body":"<b>","highlight":true},'
-    '{"title":"<t>","body":"<b>"},{"title":"<t>","body":"<b>"}]}},'
-    '{"layout":"L5","content":{"headline":"<CTA 2-3 dong>","subtext":"<1-2 dong>",'
-    '"cta":"Inbox để nhận tư vấn nguồn hàng",'
-    '"footer":"AKANO - NGUỒN HÀNG KINH DOANH - akano.vn - 0988.198.158"}}'
-    "]}\n"
-    "Quy tac: Slide1=hook pain point, Slide2=liet ke ly do, Slide3=phan tich 4 cards, Slide4=CTA.\n"
-    "Chi tra JSON thuan."
-)
+CAROUSEL_PROMPT = """Ban la creative director AKANO -- kho si gia dung nhap khau B2B.
+Sinh JSON config carousel 4 slide. Brand: Navy #1A2D5A, Red #ED1C24. Headline Title Case.
 
-SINGLE_PROMPT = (
-    "Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.\n"
-    "Chon layout phu hop va sinh JSON config cho 1 slide don. Headline Title Case.\n\n"
-    "Layout rules:\n"
-    "S1 = 1 cau insight viral  |  S2 = bai viet suy nghi thuan text\n"
-    "S3 = so lieu/milestone     |  S4 = meo/checklist co bullets\n\n"
-    "Schema S1: {\"topic\":\"<slug>\",\"output_dir\":\"output/<slug>\",\"caption\":\"<giu nguyen>\","
-    "\"hashtags\":[\"akano\"],\"slides\":[{\"layout\":\"S1\","
-    "\"content\":{\"quote\":\"<2-8 tu x 1-3 dong>\","
-    "\"attribution\":\"\\u2014 AKANO \\u00b7 Ngu\\u1ed3n h\\u00e0ng kinh doanh\"}}]}\n\n"
-    "Schema S2: {\"topic\":\"<slug>\",\"output_dir\":\"output/<slug>\",\"caption\":\"<giu nguyen>\","
-    "\"hashtags\":[\"akano\"],\"slides\":[{\"layout\":\"S2\","
-    "\"content\":{\"title\":\"<2-3 dong Title Case>\","
-    "\"body\":[\"<doan1>\",\"<doan2>\",\"<doan3>\"],"
-    "\"cta\":\"Inbox \\u0111\\u1ec3 chia s\\u1ebb th\\u00eam\"}}]}\n\n"
-    "Schema S3: {\"topic\":\"<slug>\",\"output_dir\":\"output/<slug>\",\"caption\":\"<giu nguyen>\","
-    "\"hashtags\":[\"akano\"],\"slides\":[{\"layout\":\"S3\","
-    "\"content\":{\"label\":\"<LABEL CAPS>\",\"big_number\":\"<max 8 ky tu>\","
-    "\"caption\":\"<3-6 tu>\",\"subtext\":\"<12-18 tu>\"}}]}\n\n"
-    "Schema S4: {\"topic\":\"<slug>\",\"output_dir\":\"output/<slug>\",\"caption\":\"<giu nguyen>\","
-    "\"hashtags\":[\"akano\"],\"slides\":[{\"layout\":\"S4\","
-    "\"content\":{\"label\":\"<LABEL CAPS>\",\"headline\":\"<2 dong>\","
-    "\"items\":[\"<i1>\",\"<i2>\",\"<i3>\"],"
-    "\"cta\":\"Inbox \\u0111\\u1ec3 Akano t\\u01b0 v\\u1ea5n\"}}]}\n\n"
-    "Chi tra JSON thuan."
-)
+Tra ve JSON theo dung schema nay, khong them gi khac:
+{
+  "topic": "slug-kebab-case",
+  "output_dir": "output/slug",
+  "caption": "(giu nguyen caption input)",
+  "hashtags": ["akano", "nguonhangsi"],
+  "slides": [
+    {"layout": "L1", "content": {"headline": "Tieu De Chinh\\n2-3 Dong", "sub_hook": "Cau phu 1-2 dong", "body": ["Diem 1", "Diem 2", "Diem 3"]}},
+    {"layout": "L2", "content": {"headline": "Tieu De Slide 2", "items": ["Muc 1", "Muc 2", "Muc 3"]}},
+    {"layout": "L3", "content": {"headline": "Tieu De Slide 3", "cards": [
+      {"title": "Ten 1", "body": "Mo ta 1"},
+      {"title": "Ten 2", "body": "Mo ta 2", "highlight": true},
+      {"title": "Ten 3", "body": "Mo ta 3"},
+      {"title": "Ten 4", "body": "Mo ta 4"}
+    ]}},
+    {"layout": "L5", "content": {
+      "headline": "CTA Headline\\n2-3 Dong",
+      "subtext": "Cau ket 1-2 dong",
+      "cta": "Inbox để nhận tư vấn nguồn hàng",
+      "footer": "AKANO - NGUỒN HÀNG KINH DOANH - akano.vn - 0988.198.158"
+    }}
+  ]
+}
+Chi tra JSON thuan, khong giai thich."""
+
+SINGLE_PROMPT = """Ban la creative director AKANO -- kho si gia dung nhap khau B2B.
+Chon layout va sinh JSON config cho 1 slide don. Headline Title Case.
+
+Quy tac chon layout:
+- S1: co 1 cau insight manh, co dong, viral
+- S2: bai viet suy nghi, triet ly, thuan text
+- S3: co so lieu / milestone / countdown
+- S4: meo thuc chien, checklist co bullet
+
+Tra ve JSON theo dung 1 trong 4 schema, khong them gi khac:
+
+S1 (Quote):
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"S1","content":{"quote":"Cau quote manh\\n1-2 dong nua neu can","attribution":"— AKANO · Nguồn hàng kinh doanh"}}]}
+
+S2 (Insight text):
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"S2","content":{"title":"Title 2-3 Dong\\nTitle Case","body":["Doan 1 dat van de.","Doan 2 phan tich co so lieu.","Doan 3 ket luan manh."],"cta":"Inbox để chia sẻ thêm"}}]}
+
+S3 (Milestone/Stat):
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"S3","content":{"label":"LABEL CAPS","big_number":"300+","caption":"Mo ta ngan","subtext":"Cau giai thich 12-18 tu."}}]}
+
+S4 (Tip/Checklist):
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"S4","content":{"label":"MEO KINH DOANH","headline":"Tieu De\\n2 Dong","items":["Item 1 ro rang","Item 2 thuc te","Item 3 ap dung ngay"],"cta":"Inbox để Akano tư vấn"}}]}
+
+Chi tra JSON thuan, khong giai thich."""
 
 
 def call_gpt(system_prompt, tieu_de, caption):
-    user_msg = "Tieu de: " + tieu_de + "\n\nCaption:\n" + caption
+    user_msg = "Tieu de bai: " + tieu_de + "\n\nCaption day du:\n" + caption
     res = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={"Authorization": "Bearer " + OPENAI_API_KEY, "Content-Type": "application/json"},
@@ -113,6 +115,7 @@ def call_gpt(system_prompt, tieu_de, caption):
         return json.loads(raw)
     except json.JSONDecodeError as e:
         print("[ERROR] Parse JSON that bai: " + str(e))
+        print("[DEBUG] GPT raw output: " + raw[:300])
         return None
 
 
@@ -123,8 +126,7 @@ def render(config, tmp_dir):
         json.dump(config, f, ensure_ascii=False, indent=2)
     result = subprocess.run(
         ["python", str(COMPOSE_SCRIPT), "--carousel", str(config_path)],
-        capture_output=True,
-        text=True,
+        capture_output=True, text=True,
     )
     print(result.stdout)
     if result.returncode != 0:
@@ -164,7 +166,7 @@ if records:
 for i, row in enumerate(records):
     status   = str(row.get("STATUS", "")).strip()
     loai_anh = str(row.get("Status anh", "") or row.get("Status anh", "")).strip().lower()
-    gio_dang = str(row.get("GIO DANG", "") or row.get("GIO DANG", "")).strip()
+    gio_dang = str(row.get("GIO DANG", "") or row.get("GIỜ ĐĂNG", "")).strip()
     row_num  = i + 4
     headers  = list(row.keys())
 
@@ -180,11 +182,24 @@ for i, row in enumerate(records):
         if status not in ("Chua lam", "Chưa làm"):
             continue
 
-    tieu_de = str(row.get("TIEU DE BAI", "") or row.get("TIÊu ĐỀ BÀI", "")).strip()
-    caption = str(row.get("CAPTION DAY DU", "") or row.get("CAPTION ĐẦY ĐỦ", "")).strip()
+    # Doc tieu de va caption tu nhieu ten cot co the
+    tieu_de = ""
+    for key in headers:
+        if "tieu" in key.lower() and "de" in key.lower():
+            val = str(row.get(key, "")).strip()
+            if val:
+                tieu_de = val
+                break
+
+    caption = ""
+    for key in headers:
+        if "caption" in key.lower():
+            val = str(row.get(key, "")).strip()
+            if val and len(val) > len(caption):
+                caption = val
 
     print("\n[INFO] Dong " + str(row_num) + " | Loai: " + loai_anh + " | " + tieu_de[:50])
-    print("[DEBUG] Row data: " + str({k: str(v)[:40] for k, v in row.items() if v}))
+    print("[DEBUG] caption length: " + str(len(caption)) + " | tieu_de: " + repr(tieu_de[:30]))
 
     if not caption:
         print("[WARN] Caption trong, bo qua")
