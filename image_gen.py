@@ -152,12 +152,18 @@ def upload_to_facebook(png_path):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+from datetime import datetime, timezone, timedelta
+vn_tz        = timezone(timedelta(hours=7))
+current_time = datetime.now(vn_tz).strftime("%H:%M")
+print("[INFO] Gio Viet Nam: " + current_time)
+
 records = sheet.get_all_records(head=3)
 print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
 for i, row in enumerate(records):
     status    = str(row.get("STATUS", "")).strip()
     loai_anh  = str(row.get("Status anh", "") or row.get("Status ảnh", "")).strip().lower()
+    gio_dang  = str(row.get("GIO DANG", "") or row.get("GIỜ ĐĂNG", "")).strip()
     row_num   = i + 4
     headers   = list(row.keys())
 
@@ -168,6 +174,15 @@ for i, row in enumerate(records):
     # Chi xu ly row co Status anh hop le
     if loai_anh not in ("carousel", "single", "singer-post", "single-post"):
         continue
+
+    # Chi gen anh cho row sap duoc dang:
+    # - "Test ngay" -> chay ngay
+    # - GIO DANG khop gio hien tai va STATUS = "Chua lam"
+    if status != "Test ngay":
+        if gio_dang != current_time:
+            continue
+        if status not in ("Chua lam", "Chưa làm"):
+            continue
 
     tieu_de = str(row.get("TIÊu ĐỀ BÀI", "") or row.get("TIEU DE BAI", "")).strip()
     caption = str(row.get("CAPTION ĐẦY ĐỦ", "") or row.get("CAPTION DAY DU", "")).strip()
@@ -202,16 +217,4 @@ for i, row in enumerate(records):
             img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
             for idx, png_path in enumerate(pngs[:4]):
                 col = img_cols[idx]
-                fb_id = upload_to_facebook(png_path)
-                if fb_id and col in headers:
-                    sheet.update_cell(row_num, headers.index(col) + 1, fb_id)
-                    print("[OK] " + col + " = " + fb_id)
-        else:
-            fb_id = upload_to_facebook(pngs[0])
-            if fb_id and "IMAGE_PATH_1" in headers:
-                sheet.update_cell(row_num, headers.index("IMAGE_PATH_1") + 1, fb_id)
-                print("[OK] IMAGE_PATH_1 = " + fb_id)
-
-    print("[OK] Dong " + str(row_num) + " xong!")
-
-print("\n[INFO] image_gen.py hoan tat.")
+     
