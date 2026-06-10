@@ -224,4 +224,3 @@ for i, row in enumerate(records):
     print("[OK] Dong " + str(row_num) + " da sinh anh xong!")
 
 print("\n[INFO] image_gen_carousel.py hoan tat.")
-                                        
