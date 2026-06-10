@@ -1,15 +1,14 @@
 """
 image_gen_carousel.py - AKANO Auto Carousel Generator
-Doc Sheet rows "Status anh"="carousel"
+Doc Sheet rows "Status anh"="carousel" va chua dang (STATUS != "Da dang")
 -> Goi GPT-4o-mini sinh JSON config
 -> Chay compose_slide.py render 4 PNGs
--> Upload PNG len Google Drive (public URL, khong expire)
--> Cap nhat IMAGE_PATH_1..4 voi Drive URL
--> poster.py se download + re-upload len FB luc dang bai
+-> Upload len Facebook as unpublished photo (fb:ID)
+-> Cap nhat IMAGE_PATH_1..4
+poster.py dung fb:ID de dang carousel
 """
 
 import os
-import io
 import json
 import subprocess
 import tempfile
@@ -17,10 +16,10 @@ import gspread
 import requests
 from pathlib import Path
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+FB_TOKEN       = os.environ["FB_PAGE_TOKEN"]
+PAGE_ID        = "111199154354113"
 
 SCOPES = [
     "https://spreadsheets.google.com/feeds",
@@ -34,13 +33,8 @@ gs_client   = gspread.authorize(creds)
 spreadsheet = gs_client.open_by_key(os.environ["SHEET_ID"])
 sheet       = spreadsheet.worksheet("Post")
 
-drive = build("drive", "v3", credentials=creds)
-
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
-
-CAROUSEL_FOLDER_ID = os.environ["DRIVE_FOLDER_ID"]
-print("[INFO] Su dung Drive folder ID: " + CAROUSEL_FOLDER_ID)
 
 SYSTEM_PROMPT = """
 Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
@@ -89,7 +83,7 @@ JSON schema bat buoc:
       "content": {
         "headline": "<CTA headline 2-3 dong>",
         "subtext": "<cau ket 1-2 dong>",
-        "cta": "Inbox nhận tư vấn nguồn hàng",
+        "cta": "Inbox để nhận tư vấn nguồn hàng",
         "footer": "AKANO - NGUỒN HÀNG KINH DOANH - akano.vn - 0988.198.158"
       }
     }
@@ -163,20 +157,22 @@ def render_carousel(config, tmp_dir):
     return pngs
 
 
-def upload_to_drive(png_path, filename):
-    """Upload PNG len Google Drive, tra ve direct download URL (khong expire)."""
+def upload_to_facebook(png_path):
+    """Upload anh len Facebook as unpublished photo, tra ve 'fb:PHOTO_ID'."""
     with open(png_path, "rb") as f:
-        media = MediaIoBaseUpload(io.BytesIO(f.read()), mimetype="image/png", resumable=False)
-    file_meta = {"name": filename, "parents": [CAROUSEL_FOLDER_ID]}
-    uploaded = drive.files().create(body=file_meta, media_body=media, fields="id").execute()
-    fid = uploaded.get("id")
-    if not fid:
-        print("[ERROR] Upload Drive that bai: " + str(uploaded))
-        return None
-    drive.permissions().create(fileId=fid, body={"role": "reader", "type": "anyone"}).execute()
-    url = "https://drive.google.com/uc?export=download&id=" + fid
-    print("[OK] Upload Drive: " + url)
-    return url
+        res = requests.post(
+            "https://graph.facebook.com/v22.0/" + PAGE_ID + "/photos",
+            data={"published": "false", "access_token": FB_TOKEN},
+            files={"source": ("image.png", f, "image/png")},
+            timeout=60,
+        )
+    result = res.json()
+    photo_id = result.get("id")
+    if photo_id:
+        print("[OK] Upload Facebook photo: " + str(photo_id))
+        return "fb:" + str(photo_id)
+    print("[ERROR] Upload Facebook that bai: " + str(result))
+    return None
 
 
 records = sheet.get_all_records(head=3)
@@ -187,19 +183,16 @@ for i, row in enumerate(records):
     if loai_anh != "carousel":
         continue
 
+    # Chi skip neu bai da duoc dang thanh cong
+    status = str(row.get("STATUS", "")).strip()
+    if status in ("Đã đăng", "Da dang"):
+        print("[SKIP] Dong " + str(i + 4) + ": da dang roi, bo qua")
+        continue
+
     row_num = i + 4
     tieu_de = str(row.get("TIÊu ĐỀ BÀI", "") or row.get("TIEU DE BAI", "")).strip()
     caption = str(row.get("CAPTION ĐẦY ĐỦ", "") or row.get("CAPTION DAY DU", "")).strip()
     headers = list(row.keys())
-
-    # Skip neu IMAGE_PATH_1 da la Drive URL (http...)
-    # Neu la fb:... (het han) hoac trong -> tai generate
-    existing_img = str(row.get("IMAGE_PATH_1", "")).strip()
-    if existing_img and existing_img.startswith("http"):
-        print("[SKIP] Dong " + str(row_num) + ": da co Drive URL, bo qua")
-        continue
-    if existing_img and existing_img.startswith("fb:"):
-        print("[INFO] Dong " + str(row_num) + ": fb:ID cu (het han), se tai gen len Drive")
 
     print("\n[INFO] Xu ly dong " + str(row_num) + ": " + tieu_de[:60])
 
@@ -223,13 +216,12 @@ for i, row in enumerate(records):
 
         img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
 
-        for idx2, png_path in enumerate(pngs[:4]):
-            col_name = img_cols[idx2]
-            filename = "slide_" + str(idx2 + 1) + "_row" + str(row_num) + ".png"
-            drive_url = upload_to_drive(png_path, filename)
-            if drive_url and col_name in headers:
-                sheet.update_cell(row_num, headers.index(col_name) + 1, drive_url)
-                print("[OK] " + col_name + " = " + drive_url)
+        for idx, png_path in enumerate(pngs[:4]):
+            col_name = img_cols[idx]
+            fb_id = upload_to_facebook(png_path)
+            if fb_id and col_name in headers:
+                sheet.update_cell(row_num, headers.index(col_name) + 1, fb_id)
+                print("[OK] " + col_name + " = " + fb_id)
 
     print("[OK] Dong " + str(row_num) + " da sinh anh xong!")
 
