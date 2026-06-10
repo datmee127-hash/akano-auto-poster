@@ -39,26 +39,8 @@ drive = build("drive", "v3", credentials=creds)
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
-CAROUSEL_FOLDER_NAME = "AKANO-CAROUSEL-OUTPUT"
-
-def get_or_create_carousel_folder():
-    result = drive.files().list(
-        q=f"name='{CAROUSEL_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-        fields="files(id)"
-    ).execute()
-    files = result.get("files", [])
-    if files:
-        return files[0]["id"]
-    folder = drive.files().create(
-        body={"name": CAROUSEL_FOLDER_NAME, "mimeType": "application/vnd.google-apps.folder"},
-        fields="id"
-    ).execute()
-    fid = folder["id"]
-    drive.permissions().create(fileId=fid, body={"role": "reader", "type": "anyone"}).execute()
-    print("[INFO] Tao folder Drive: " + CAROUSEL_FOLDER_NAME + " id=" + fid)
-    return fid
-
-CAROUSEL_FOLDER_ID = get_or_create_carousel_folder()
+CAROUSEL_FOLDER_ID = os.environ["DRIVE_FOLDER_ID"]
+print("[INFO] Su dung Drive folder ID: " + CAROUSEL_FOLDER_ID)
 
 SYSTEM_PROMPT = """
 Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
