@@ -252,4 +252,4 @@ for i, row in enumerate(records):
     # 4. Xóa LOẠI ẢNH để không chạy lại lần sau
     if "Status ảnh" in headers:
         sheet.update_cell(row_num, headers.index("Status ảnh") + 1, "done")
-    print(f"[OK] Dòng {row_num} đã 
+    print(f"[OK] Dong {row_num} da sinh anh xong!")
