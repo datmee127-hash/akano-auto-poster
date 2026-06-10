@@ -2,9 +2,8 @@
 image_gen.py - AKANO Auto Image Generator (unified)
 Doc tung row trong Sheet:
   - Skip neu STATUS = "Da dang"
-  - Doc "Status anh":
-      "carousel"    -> gen 4 anh -> IMAGE_PATH_1..4
-      "singer-post" -> gen 1 anh -> IMAGE_PATH_1
+  - Chi xu ly row khop gio dang hoac "Test ngay"
+  - Doc "Status anh": carousel -> 4 anh, singer-post -> 1 anh
   - Upload len Facebook (fb:ID), poster.py se dung luc dang bai
 """
 
@@ -15,6 +14,7 @@ import tempfile
 import gspread
 import requests
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
 from google.oauth2.service_account import Credentials
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
@@ -36,68 +36,67 @@ sheet       = spreadsheet.worksheet("Post")
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
-# ── System Prompts ────────────────────────────────────────────────────────────
+CAROUSEL_PROMPT = (
+    "Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.\n"
+    "Sinh JSON config cho carousel 4 slide. Brand: Navy #1A2D5A, Red #ED1C24. Headline Title Case.\n\n"
+    "JSON schema:\n"
+    '{"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],'
+    '"slides":['
+    '{"layout":"L1","content":{"headline":"<2-3 dong>","sub_hook":"<1-2 dong>","body":["<d1>","<d2>","<d3>"]}},'
+    '{"layout":"L2","content":{"headline":"<title>","items":["<i1>","<i2>","<i3>"]}},'
+    '{"layout":"L3","content":{"headline":"<title>","cards":['
+    '{"title":"<t>","body":"<b>"},{"title":"<t>","body":"<b>","highlight":true},'
+    '{"title":"<t>","body":"<b>"},{"title":"<t>","body":"<b>"}]}},'
+    '{"layout":"L5","content":{"headline":"<CTA 2-3 dong>","subtext":"<1-2 dong>",'
+    '"cta":"Inbox để nhận tư vấn nguồn hàng",'
+    '"footer":"AKANO - NGUỒN HÀNG KINH DOANH - akano.vn - 0988.198.158"}}'
+    "]}\n"
+    "Quy tac: Slide1=hook pain point, Slide2=liet ke ly do, Slide3=phan tich 4 cards, Slide4=CTA.\n"
+    "Chi tra JSON thuan."
+)
 
-CAROUSEL_PROMPT = """
-Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
-Sinh JSON config cho carousel 4 slide. Brand: Navy #1A2D5A, Red #ED1C24. Headline Title Case.
+SINGLE_PROMPT = (
+    "Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.\n"
+    "Chon layout phu hop va sinh JSON config cho 1 slide don. Headline Title Case.\n\n"
+    "Layout rules:\n"
+    "S1 = 1 cau insight viral  |  S2 = bai viet suy nghi thuan text\n"
+    "S3 = so lieu/milestone     |  S4 = meo/checklist co bullets\n\n"
+    "Schema S1: {\"topic\":\"<slug>\",\"output_dir\":\"output/<slug>\",\"caption\":\"<giu nguyen>\","
+    "\"hashtags\":[\"akano\"],\"slides\":[{\"layout\":\"S1\","
+    "\"content\":{\"quote\":\"<2-8 tu x 1-3 dong>\","
+    "\"attribution\":\"\\u2014 AKANO \\u00b7 Ngu\\u1ed3n h\\u00e0ng kinh doanh\"}}]}\n\n"
+    "Schema S2: {\"topic\":\"<slug>\",\"output_dir\":\"output/<slug>\",\"caption\":\"<giu nguyen>\","
+    "\"hashtags\":[\"akano\"],\"slides\":[{\"layout\":\"S2\","
+    "\"content\":{\"title\":\"<2-3 dong Title Case>\","
+    "\"body\":[\"<doan1>\",\"<doan2>\",\"<doan3>\"],"
+    "\"cta\":\"Inbox \\u0111\\u1ec3 chia s\\u1ebb th\\u00eam\"}}]}\n\n"
+    "Schema S3: {\"topic\":\"<slug>\",\"output_dir\":\"output/<slug>\",\"caption\":\"<giu nguyen>\","
+    "\"hashtags\":[\"akano\"],\"slides\":[{\"layout\":\"S3\","
+    "\"content\":{\"label\":\"<LABEL CAPS>\",\"big_number\":\"<max 8 ky tu>\","
+    "\"caption\":\"<3-6 tu>\",\"subtext\":\"<12-18 tu>\"}}]}\n\n"
+    "Schema S4: {\"topic\":\"<slug>\",\"output_dir\":\"output/<slug>\",\"caption\":\"<giu nguyen>\","
+    "\"hashtags\":[\"akano\"],\"slides\":[{\"layout\":\"S4\","
+    "\"content\":{\"label\":\"<LABEL CAPS>\",\"headline\":\"<2 dong>\","
+    "\"items\":[\"<i1>\",\"<i2>\",\"<i3>\"],"
+    "\"cta\":\"Inbox \\u0111\\u1ec3 Akano t\\u01b0 v\\u1ea5n\"}}]}\n\n"
+    "Chi tra JSON thuan."
+)
 
-JSON schema:
-{
-  "topic": "<slug>", "output_dir": "output/<slug>",
-  "caption": "<giu nguyen>", "hashtags": ["akano"],
-  "slides": [
-    {"layout":"L1","content":{"headline":"<2-3 dong>","sub_hook":"<1-2 dong>","body":["<d1>","<d2>","<d3>"]}},
-    {"layout":"L2","content":{"headline":"<title>","items":["<i1>","<i2>","<i3>"]}},
-    {"layout":"L3","content":{"headline":"<title>","cards":[
-      {"title":"<t>","body":"<b>"},{"title":"<t>","body":"<b>","highlight":true},
-      {"title":"<t>","body":"<b>"},{"title":"<t>","body":"<b>"}]}},
-    {"layout":"L5","content":{"headline":"<CTA 2-3 dong>","subtext":"<1-2 dong>",
-      "cta":"Inbox để nhận tư vấn nguồn hàng",
-      "footer":"AKANO - NGUỒN HÀNG KINH DOANH - akano.vn - 0988.198.158"}}
-  ]
-}
-Quy tac: Slide1=hook pain point, Slide2=liet ke ly do, Slide3=phan tich 4 cards, Slide4=CTA.
-Chi tra JSON thuan.
-""".strip()
-
-SINGLE_PROMPT = """
-Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
-Chon layout phu hop va sinh JSON config cho 1 slide don. Brand: Navy #1A2D5A, Red #ED1C24. Headline Title Case.
-
-Layout rules:
-S1 = 1 cau insight co dong viral  |  S2 = bai viet suy nghi thuan text
-S3 = so lieu/milestone             |  S4 = meo/checklist co bullets
-
-JSON schema theo layout:
-
-S1: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],
-     "slides":[{"layout":"S1","content":{"quote":"<2-8 tu x 1-3 dong, dung \\n>","attribution":"— AKANO · Nguồn hàng kinh doanh"}}]}
-
-S2: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],
-     "slides":[{"layout":"S2","content":{"title":"<2-3 dong Title Case>","body":["<doan1>","<doan2>","<doan3>"],"cta":"Inbox để chia sẻ thêm"}}]}
-
-S3: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],
-     "slides":[{"layout":"S3","content":{"label":"<LABEL CAPS>","big_number":"<max 8 ky tu>","caption":"<3-6 tu>","subtext":"<12-18 tu>"}}]}
-
-S4: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],
-     "slides":[{"layout":"S4","content":{"label":"<LABEL CAPS>","headline":"<2 dong, dung \\n>","items":["<i1>","<i2>","<i3>"],"cta":"Inbox để Akano tư vấn"}}]}
-
-Chi tra JSON thuan.
-""".strip()
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def call_gpt(system_prompt, tieu_de, caption):
     user_msg = "Tieu de: " + tieu_de + "\n\nCaption:\n" + caption
     res = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={"Authorization": "Bearer " + OPENAI_API_KEY, "Content-Type": "application/json"},
-        json={"model": "gpt-4o-mini",
-              "messages": [{"role": "system", "content": system_prompt},
-                           {"role": "user",   "content": user_msg}],
-              "max_tokens": 1200, "temperature": 0.7},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_msg},
+            ],
+            "max_tokens": 1200,
+            "temperature": 0.7,
+        },
         timeout=60,
     )
     data = res.json()
@@ -124,7 +123,8 @@ def render(config, tmp_dir):
         json.dump(config, f, ensure_ascii=False, indent=2)
     result = subprocess.run(
         ["python", str(COMPOSE_SCRIPT), "--carousel", str(config_path)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     print(result.stdout)
     if result.returncode != 0:
@@ -152,7 +152,6 @@ def upload_to_facebook(png_path):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-from datetime import datetime, timezone, timedelta
 vn_tz        = timezone(timedelta(hours=7))
 current_time = datetime.now(vn_tz).strftime("%H:%M")
 print("[INFO] Gio Viet Nam: " + current_time)
@@ -161,31 +160,26 @@ records = sheet.get_all_records(head=3)
 print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
 for i, row in enumerate(records):
-    status    = str(row.get("STATUS", "")).strip()
-    loai_anh  = str(row.get("Status anh", "") or row.get("Status ảnh", "")).strip().lower()
-    gio_dang  = str(row.get("GIO DANG", "") or row.get("GIỜ ĐĂNG", "")).strip()
-    row_num   = i + 4
-    headers   = list(row.keys())
+    status   = str(row.get("STATUS", "")).strip()
+    loai_anh = str(row.get("Status anh", "") or row.get("Status anh", "")).strip().lower()
+    gio_dang = str(row.get("GIO DANG", "") or row.get("GIO DANG", "")).strip()
+    row_num  = i + 4
+    headers  = list(row.keys())
 
-    # Skip bai da dang
-    if status in ("Đã đăng", "Da dang"):
+    if status in ("Da dang", "Đã đăng"):
         continue
 
-    # Chi xu ly row co Status anh hop le
     if loai_anh not in ("carousel", "single", "singer-post", "single-post"):
         continue
 
-    # Chi gen anh cho row sap duoc dang:
-    # - "Test ngay" -> chay ngay
-    # - GIO DANG khop gio hien tai va STATUS = "Chua lam"
     if status != "Test ngay":
         if gio_dang != current_time:
             continue
         if status not in ("Chua lam", "Chưa làm"):
             continue
 
-    tieu_de = str(row.get("TIÊu ĐỀ BÀI", "") or row.get("TIEU DE BAI", "")).strip()
-    caption = str(row.get("CAPTION ĐẦY ĐỦ", "") or row.get("CAPTION DAY DU", "")).strip()
+    tieu_de = str(row.get("TIEU DE BAI", "") or row.get("TIÊu ĐỀ BÀI", "")).strip()
+    caption = str(row.get("CAPTION DAY DU", "") or row.get("CAPTION ĐẦY ĐỦ", "")).strip()
 
     print("\n[INFO] Dong " + str(row_num) + " | Loai: " + loai_anh + " | " + tieu_de[:50])
 
@@ -193,7 +187,7 @@ for i, row in enumerate(records):
         print("[WARN] Caption trong, bo qua")
         continue
 
-    is_carousel = (loai_anh == "carousel")
+    is_carousel   = (loai_anh == "carousel")
     system_prompt = CAROUSEL_PROMPT if is_carousel else SINGLE_PROMPT
 
     print("[INFO] Goi GPT...")
@@ -206,6 +200,7 @@ for i, row in enumerate(records):
     if not slides:
         print("[ERROR] GPT tra ve config khong co slides, bo qua")
         continue
+
     layout = slides[0].get("layout", "?")
     print("[INFO] Layout: " + layout)
 
@@ -218,4 +213,19 @@ for i, row in enumerate(records):
             continue
 
         if is_carousel:
-            img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE
+            img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
+            for idx, png_path in enumerate(pngs[:4]):
+                col = img_cols[idx]
+                fb_id = upload_to_facebook(png_path)
+                if fb_id and col in headers:
+                    sheet.update_cell(row_num, headers.index(col) + 1, fb_id)
+                    print("[OK] " + col + " = " + fb_id)
+        else:
+            fb_id = upload_to_facebook(pngs[0])
+            if fb_id and "IMAGE_PATH_1" in headers:
+                sheet.update_cell(row_num, headers.index("IMAGE_PATH_1") + 1, fb_id)
+                print("[OK] IMAGE_PATH_1 = " + fb_id)
+
+    print("[OK] Dong " + str(row_num) + " xong!")
+
+print("\n[INFO] image_gen.py hoan tat.")
