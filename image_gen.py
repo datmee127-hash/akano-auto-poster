@@ -202,7 +202,11 @@ for i, row in enumerate(records):
         print("[ERROR] Khong sinh duoc config, bo qua")
         continue
 
-    layout = config.get("slides", [{}])[0].get("layout", "?")
+    slides = config.get("slides", [])
+    if not slides:
+        print("[ERROR] GPT tra ve config khong co slides, bo qua")
+        continue
+    layout = slides[0].get("layout", "?")
     print("[INFO] Layout: " + layout)
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -214,7 +218,4 @@ for i, row in enumerate(records):
             continue
 
         if is_carousel:
-            img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
-            for idx, png_path in enumerate(pngs[:4]):
-                col = img_cols[idx]
-     
+            img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE

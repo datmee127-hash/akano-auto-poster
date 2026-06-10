@@ -1261,6 +1261,7 @@ def write_caption_files(cfg, out_dir, slides):
 
     if not caption and not hashtags and not signature:
         return  # nothing to write
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     hashtag_line = " ".join(h if h.startswith("#") else f"#{h}" for h in hashtags)
 
