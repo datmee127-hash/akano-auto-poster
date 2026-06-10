@@ -216,4 +216,39 @@ for i, row in enumerate(records):
     if existing_img and existing_img.startswith("http"):
         print("[SKIP] Dong " + str(row_num) + ": da co Drive URL, bo qua")
         continue
-    if exist
+    if existing_img and existing_img.startswith("fb:"):
+        print("[INFO] Dong " + str(row_num) + ": fb:ID cu (het han), se tai gen len Drive")
+
+    print("\n[INFO] Xu ly dong " + str(row_num) + ": " + tieu_de[:60])
+
+    if not caption:
+        print("[WARN] Caption trong, bo qua")
+        continue
+
+    print("[INFO] Goi GPT sinh JSON config...")
+    config = generate_config(tieu_de or caption[:80], caption)
+    if not config:
+        print("[ERROR] Dong " + str(row_num) + ": Khong sinh duoc config, bo qua")
+        continue
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        pngs = render_carousel(config, tmp_dir)
+
+        if not pngs:
+            print("[ERROR] Dong " + str(row_num) + ": Render that bai")
+            continue
+
+        img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
+
+        for idx2, png_path in enumerate(pngs[:4]):
+            col_name = img_cols[idx2]
+            filename = "slide_" + str(idx2 + 1) + "_row" + str(row_num) + ".png"
+            drive_url = upload_to_drive(png_path, filename)
+            if drive_url and col_name in headers:
+                sheet.update_cell(row_num, headers.index(col_name) + 1, drive_url)
+                print("[OK] " + col_name + " = " + drive_url)
+
+    print("[OK] Dong " + str(row_num) + " da sinh anh xong!")
+
+print("\n[INFO] image_gen_carousel.py hoan tat.")
