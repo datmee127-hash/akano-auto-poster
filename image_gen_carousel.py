@@ -81,8 +81,8 @@ JSON schema bat buoc:
       "content": {
         "headline": "<CTA headline 2-3 dong>",
         "subtext": "<cau ket 1-2 dong>",
-        "cta": "Inbox nhan tu van",
-        "footer": "AKANO - NGUON HANG KINH DOANH - akano.vn - 0988.198.158"
+        "cta": "Inbox nhận tư vấn nguồn hàng",
+        "footer": "AKANO - NGUỒN HÀNG KINH DOANH - akano.vn - 0988.198.158"
       }
     }
   ]
