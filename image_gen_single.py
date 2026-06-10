@@ -208,7 +208,7 @@ print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
 for i, row in enumerate(records):
     loai_anh = str(row.get("Status anh", "") or row.get("Status ảnh", "")).strip().lower()
-    if loai_anh != "single":
+    if loai_anh not in ("single", "singer-post", "single-post"):
         continue
 
     status = str(row.get("STATUS", "")).strip()
