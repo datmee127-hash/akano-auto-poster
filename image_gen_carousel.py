@@ -206,8 +206,8 @@ records = sheet.get_all_records(head=3)
 print(f"[INFO] Đọc được {len(records)} dòng từ Sheet")
 
 for i, row in enumerate(records):
-    status = str(row.get("STATUS", "")).strip()
-    if status != "Chờ tạo carousel":
+    loai_anh = str(row.get("LOẠI ẢNH", "")).strip().lower()
+    if loai_anh != "carousel":
         continue
 
     row_num  = i + 4
@@ -249,9 +249,7 @@ for i, row in enumerate(records):
                 sheet.update_cell(row_num, headers.index(col_name) + 1, url)
                 print(f"[OK] {col_name} → {url}")
 
-    # 4. Đổi STATUS
-    sheet.update_cell(row_num, headers.index("STATUS") + 1, "Chưa làm")
-    print(f"[OK] Dòng {row_num} sẵn sàng đăng!")
-
-print("\n[INFO] image_gen_carousel.py hoàn tất.")
-               
+    # 4. Xóa LOẠI ẢNH để không chạy lại lần sau
+    if "LOẠI ẢNH" in headers:
+        sheet.update_cell(row_num, headers.index("LOẠI ẢNH") + 1, "done")
+    print(f"[OK] Dòng {row_num} đã si
