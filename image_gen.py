@@ -493,7 +493,7 @@ for i, row in enumerate(records):
     if status in ("Da dang",):
         continue
 
-    if loai_anh not in ("carousel", "single", "singer-post", "single-post", "banner"):
+    if loai_anh not in ("carousel", "single", "singer-post", "single-post", "banner", "infographic"):
         if loai_anh:
             print("[SKIP] Dong " + str(row_num) + " loai_anh='" + loai_anh + "' khong hop le")
         continue
@@ -531,7 +531,7 @@ for i, row in enumerate(records):
         continue
 
     # ── BANNER flow ──────────────────────────────────────────────────────
-    if loai_anh == "banner":
+    if loai_anh in ("banner", "infographic"):
         print("[INFO] Banner flow: gpt-image-1 + Drive photo...")
         with tempfile.TemporaryDirectory() as tmp:
             final_png = generate_banner(tieu_de or caption[:80], caption, tmp)
