@@ -56,7 +56,7 @@ PHOTO_KEYWORDS = {
 
 
 def pick_photo(tieu_de, caption, layout):
-    """Chon random 1 anh that phu hop voi content."""
+    """Chon random 1 anh that phu hop voi content. Returns None neu khong co anh."""
     text = (tieu_de + " " + caption[:200]).lower()
     if layout == "SP5":
         folder_key = "vanphong"
@@ -66,14 +66,15 @@ def pick_photo(tieu_de, caption, layout):
             if kw in text:
                 folder_key = pool
                 break
-    folder = PHOTO_POOLS[folder_key]
-    photos = list(folder.glob("*.jpg")) + list(folder.glob("*.JPG")) + list(folder.glob("*.jpeg"))
-    if not photos:
-        print("[WARN] Khong tim thay anh trong " + str(folder) + ", dung kho mac dinh")
-        photos = list(PHOTO_POOLS["kho"].glob("*.jpg"))
-    chosen = random.choice(photos)
-    print("[INFO] Auto-pick anh: " + chosen.name + " (folder: " + folder_key + ")")
-    return str(chosen)
+    for key in [folder_key, "kho", "container", "vanphong"]:
+        folder = PHOTO_POOLS[key]
+        photos = list(folder.glob("*.jpg")) + list(folder.glob("*.JPG")) + list(folder.glob("*.jpeg"))
+        if photos:
+            chosen = random.choice(photos)
+            print("[INFO] Auto-pick anh: " + chosen.name + " (folder: " + key + ")")
+            return str(chosen)
+    print("[WARN] Khong co anh (server env) - dung fallback graphic layout")
+    return None
 
 
 def inject_photo_path(config, tieu_de, caption):
