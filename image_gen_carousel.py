@@ -1,11 +1,8 @@
 """
-image_gen_carousel.py - AKANO Auto Carousel Generator
-Doc Sheet rows "Status anh"="carousel" va chua dang (STATUS != "Da dang")
--> Goi GPT-4o-mini sinh JSON config
--> Chay compose_slide.py render 4 PNGs
--> Upload len Facebook as unpublished photo (fb:ID)
--> Cap nhat IMAGE_PATH_1..4
-poster.py dung fb:ID de dang carousel
+image_gen_carousel.py - AKANO Post Generator
+Xu ly: FORMAT = "carousel" | "single" | "single-post" | "singer-post"
+- carousel  -> GPT sinh 4 slides JSON -> render 4 PNG -> upload -> IMAGE_PATH_1..4
+- single    -> GPT chon layout (S1/S2/S3/S4) + sinh 1 slide JSON -> render 1 PNG -> upload -> IMAGE_PATH_1
 """
 
 import os
@@ -37,45 +34,9 @@ sheet       = spreadsheet.worksheet("Post")
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
-SYSTEM_PROMPT_SINGLE = """
-Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
-Nhiem vu: dua vao tieu de va caption bai dang, sinh ra JSON config cho tool render 1 slide DUNG (single post).
+# ── Prompts ───────────────────────────────────────────────────────────────────
 
-Brand voice: Nguoi trong nghe noi voi nguoi dang kinh doanh -- thang, thuc chien, khong hoa my.
-Audience: chu shop online, seller TMDT, chu kho si, dai ly phan phoi.
-Visual: Editorial magazine B2B -- Navy #1A2D5A, Red #ED1C24, White. Headline Title Case Bold.
-
-JSON schema bat buoc (chi 1 slide, layout S2 hoac S4):
-{
-  "topic": "<slug-khong-dau>",
-  "output_dir": "output/<slug>",
-  "caption": "<noi dung caption tu input, giu nguyen>",
-  "hashtags": ["akano", "nguonhangsi"],
-  "slides": [
-    {
-      "layout": "S2",
-      "content": {
-        "title": "<tieu de 4-7 tu, Title Case, 2 dong>",
-        "body": [
-          "<doan 1 -- dat van de 2-3 cau>",
-          "<doan 2 -- goc nhin cu the, co so lieu>",
-          "<doan 3 -- bai hoc / conclusion>"
-        ],
-        "cta": "Inbox de duoc tu van nguon hang"
-      }
-    }
-  ]
-}
-
-Quy tac:
-- Chi sinh 1 slide duy nhat
-- Layout S2 neu insight/van de, layout S4 neu checklist/meo
-- S4 schema: {"label": "...", "headline": "...", "items": ["...", "...", "..."], "cta": "..."}
-- Headline Title Case, khong CAPS toan bo
-- Chi tra ve JSON thuan, khong giai thich them
-""".strip()
-
-SYSTEM_PROMPT = """
+CAROUSEL_PROMPT = """
 Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
 Nhiem vu: dua vao tieu de va caption bai dang, sinh ra JSON config cho tool render carousel 4 slide.
 
@@ -138,24 +99,51 @@ Quy tac:
 - Chi tra ve JSON thuan, khong giai thich them
 """.strip()
 
+SINGLE_PROMPT = """
+Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
+Nhiem vu: dua vao tieu de va caption bai dang, chon layout phu hop va sinh JSON config cho 1 slide don.
 
-def generate_config(tieu_de, caption, is_single=False):
+Brand voice: Nguoi trong nghe noi voi nguoi dang kinh doanh -- thang, thuc chien, khong hoa my.
+Audience: chu shop online, seller TMDT, chu kho si, dai ly phan phoi.
+Visual: Editorial magazine B2B -- Navy #1A2D5A, Red #ED1C24, White. Headline Title Case Bold.
+
+LAYOUT SELECTION RULES:
+S1 Quote Card    -> khi co 1 cau insight co dong manh, viral/share
+S2 Insight Card  -> khi la bai viet suy nghi, goc nhin, triet ly kinh doanh (thuan text)
+S3 Stat/Milestone -> khi co so lieu lon, milestone, countdown
+S4 Tip Card      -> khi la meo, checklist, huong dan thuc chien (co bullet points)
+
+OUTPUT JSON SCHEMA (chi 1 slide):
+
+S1: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S1","content":{"quote":"<insight 2-8 tu x 1-3 dong, dung \\n>","attribution":"— AKANO · Nguồn hàng kinh doanh"}}]}
+
+S2: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S2","content":{"title":"<2-3 dong Title Case, dung \\n>","body":["<doan 1>","<doan 2>","<doan 3>"],"cta":"Inbox để chia sẻ thêm"}}]}
+
+S3: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S3","content":{"label":"<LABEL CAPS>","big_number":"<max 8 ky tu>","caption":"<3-6 tu>","subtext":"<12-18 tu>"}}]}
+
+S4: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S4","content":{"label":"<LABEL CAPS>","headline":"<2 dong Title Case, dung \\n>","items":["<item 1>","<item 2>","<item 3>"],"cta":"Inbox để Akano tư vấn"}}]}
+
+Quy tac chung:
+- Chi tra ve JSON thuan, khong giai thich
+- Slug kebab-case khong dau
+- Giu nguyen toan bo caption input
+""".strip()
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def generate_config(tieu_de, caption, system_prompt, max_tokens=1200):
     user_msg = "Tieu de bai: " + tieu_de + "\n\nCaption:\n" + caption
-    prompt   = SYSTEM_PROMPT_SINGLE if is_single else SYSTEM_PROMPT
-    max_tok  = 600 if is_single else 1200
     res = requests.post(
         "https://api.openai.com/v1/chat/completions",
-        headers={
-            "Authorization": "Bearer " + OPENAI_API_KEY,
-            "Content-Type": "application/json",
-        },
+        headers={"Authorization": "Bearer " + OPENAI_API_KEY, "Content-Type": "application/json"},
         json={
             "model": "gpt-4o-mini",
             "messages": [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": user_msg},
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_msg},
             ],
-            "max_tokens": max_tok,
+            "max_tokens": max_tokens,
             "temperature": 0.7,
         },
         timeout=60,
@@ -177,29 +165,26 @@ def generate_config(tieu_de, caption, is_single=False):
         return None
 
 
-def render_carousel(config, tmp_dir):
-    config_path = tmp_dir / "carousel_config.json"
+def render_slides(config, tmp_dir):
+    config_path = tmp_dir / "config.json"
     config["output_dir"] = str(tmp_dir / "slides")
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(config, f, ensure_ascii=False, indent=2)
     print("[INFO] Chay compose_slide.py...")
     result = subprocess.run(
         ["python", str(COMPOSE_SCRIPT), "--carousel", str(config_path)],
-        capture_output=True,
-        text=True,
+        capture_output=True, text=True,
     )
     print(result.stdout)
     if result.returncode != 0:
         print("[ERROR] compose_slide.py failed:\n" + result.stderr)
         return []
-    out_dir = tmp_dir / "slides"
-    pngs = sorted(out_dir.glob("slide_*.png"))
+    pngs = sorted((tmp_dir / "slides").glob("slide_*.png"))
     print("[INFO] Render xong: " + str([p.name for p in pngs]))
     return pngs
 
 
 def upload_to_facebook(png_path):
-    """Upload anh len Facebook as unpublished photo, tra ve 'fb:PHOTO_ID'."""
     with open(png_path, "rb") as f:
         res = requests.post(
             "https://graph.facebook.com/v22.0/" + PAGE_ID + "/photos",
@@ -216,6 +201,11 @@ def upload_to_facebook(png_path):
     return None
 
 
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+SINGLE_FORMATS   = ("single", "single-post", "singer-post")
+CAROUSEL_FORMATS = ("carousel",)
+
 records = sheet.get_all_records(head=3)
 print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
@@ -225,7 +215,10 @@ print("[INFO] Gio Viet Nam: " + current_time)
 
 for i, row in enumerate(records):
     loai_anh = str(row.get("FORMAT", "") or row.get("Status anh", "") or row.get("Status ảnh", "")).strip().lower()
-    if loai_anh not in ("carousel", "single", "singer-post", "single-post"):
+
+    is_carousel = loai_anh in CAROUSEL_FORMATS
+    is_single   = loai_anh in SINGLE_FORMATS
+    if not is_carousel and not is_single:
         continue
 
     status   = str(row.get("STATUS", "")).strip()
@@ -233,7 +226,6 @@ for i, row in enumerate(records):
 
     if status in ("Đã đăng", "Da dang"):
         continue
-
     if status == "Test ngay":
         pass
     elif gio_dang != current_time or status not in ("Chua lam", "Chưa làm"):
@@ -244,38 +236,58 @@ for i, row in enumerate(records):
     caption = str(row.get("CAPTION ĐẦY ĐỦ", "") or row.get("CAPTION DAY DU", "")).strip()
     headers = list(row.keys())
 
-    print("\n[INFO] Xu ly dong " + str(row_num) + ": " + tieu_de[:60])
-
     if not caption:
-        print("[WARN] Caption trong, bo qua")
+        print("[WARN] Dong " + str(row_num) + ": Caption trong, bo qua")
         continue
 
-    is_single = loai_anh in ("single", "singer-post", "single-post")
-    print("[INFO] Goi GPT sinh JSON config (loai: " + ("single" if is_single else "carousel") + ")...")
-    config = generate_config(tieu_de or caption[:80], caption, is_single=is_single)
-    if not config:
-        print("[ERROR] Dong " + str(row_num) + ": Khong sinh duoc config, bo qua")
-        continue
-
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_dir = Path(tmp)
-        pngs = render_carousel(config, tmp_dir)
-
-        if not pngs:
-            print("[ERROR] Dong " + str(row_num) + ": Render that bai")
+    # ── CAROUSEL ──────────────────────────────────────────────────────────────
+    if is_carousel:
+        print("\n[INFO] [CAROUSEL] Dong " + str(row_num) + ": " + tieu_de[:60])
+        config = generate_config(tieu_de or caption[:80], caption, CAROUSEL_PROMPT, max_tokens=1200)
+        if not config:
+            print("[ERROR] Dong " + str(row_num) + ": Khong sinh duoc config")
             continue
 
-        img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
-        # Single post: chi upload 1 anh dau
-        upload_pngs = pngs[:1] if is_single else pngs[:4]
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            pngs = render_slides(config, tmp_dir)
+            if not pngs:
+                print("[ERROR] Dong " + str(row_num) + ": Render that bai")
+                continue
 
-        for idx, png_path in enumerate(upload_pngs):
-            col_name = img_cols[idx]
-            fb_id = upload_to_facebook(png_path)
-            if fb_id and col_name in headers:
-                sheet.update_cell(row_num, headers.index(col_name) + 1, fb_id)
-                print("[OK] " + col_name + " = " + fb_id)
+            img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
+            for idx, png_path in enumerate(pngs[:4]):
+                col_name = img_cols[idx]
+                fb_id = upload_to_facebook(png_path)
+                if fb_id and col_name in headers:
+                    sheet.update_cell(row_num, headers.index(col_name) + 1, fb_id)
+                    print("[OK] " + col_name + " = " + fb_id)
 
-    print("[OK] Dong " + str(row_num) + " da sinh anh xong!")
+        print("[OK] Dong " + str(row_num) + " carousel xong!")
 
-print("\n[INFO] image_gen_carousel.py hoan tat.")
+    # ── SINGLE ────────────────────────────────────────────────────────────────
+    elif is_single:
+        print("\n[INFO] [SINGLE] Dong " + str(row_num) + ": " + tieu_de[:60])
+        config = generate_config(tieu_de or caption[:80], caption, SINGLE_PROMPT, max_tokens=800)
+        if not config:
+            print("[ERROR] Dong " + str(row_num) + ": Khong sinh duoc config")
+            continue
+
+        layout = config.get("slides", [{}])[0].get("layout", "?")
+        print("[INFO] Layout GPT chon: " + layout)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            pngs = render_slides(config, tmp_dir)
+            if not pngs:
+                print("[ERROR] Dong " + str(row_num) + ": Render that bai")
+                continue
+
+            fb_id = upload_to_facebook(pngs[0])
+            if fb_id and "IMAGE_PATH_1" in headers:
+                sheet.update_cell(row_num, headers.index("IMAGE_PATH_1") + 1, fb_id)
+                print("[OK] IMAGE_PATH_1 = " + fb_id)
+
+        print("[OK] Dong " + str(row_num) + " single post xong! Layout: " + layout)
+
+print("\n[INFO] image_gen_carousel.py hoan thanh.")
