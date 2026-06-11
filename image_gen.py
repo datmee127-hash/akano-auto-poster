@@ -493,7 +493,7 @@ for i, row in enumerate(records):
     if status in ("Da dang",):
         continue
 
-    if loai_anh not in ("carousel", "single", "singer-post", "single-post", "banner", "infographic"):
+    if loai_anh not in ("banner", "infographic"):
         continue
 
     if status != "Test ngay":
