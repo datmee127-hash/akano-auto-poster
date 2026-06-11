@@ -207,6 +207,16 @@ SINGLE_FORMATS   = ("single", "single-post", "singer-post")
 CAROUSEL_FORMATS = ("carousel",)
 
 records = sheet.get_all_records(head=3)
+
+# DEBUG: in ra column headers va FORMAT values
+if records:
+    print("[DEBUG] Column headers: " + str(list(records[0].keys())))
+    for r in records[:5]:
+        fmt = str(r.get("FORMAT","") or r.get("Status anh","") or r.get("Status anh","")).strip()
+        sta = str(r.get("STATUS","")).strip()
+        if fmt or sta:
+            print("[DEBUG] FORMAT='" + fmt + "' STATUS='" + sta + "'")
+
 print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
 vn_tz        = timezone(timedelta(hours=7))
