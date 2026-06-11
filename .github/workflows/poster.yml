@@ -52,8 +52,8 @@ jobs:
           python - <<'PYEOF'
           import re
           content = open('poster.py', encoding='utf-8').read()
-          patch = '    fmt = str(row.get("FORMAT", "")).strip().lower()\n    if fmt in ("carousel","single","single-post","singer-post","banner","infographic"):\n        v1 = str(row.get("IMAGE_PATH_1","") or row.get("IMAGE_PATH","")).strip()\n        if not v1:\n            print("[SKIP] row " + str(row_num) + ": " + fmt + " chua co anh")\n            continue\n'
-          new = content.replace('    row_num = i + 4\n    caption =', '    row_num = i + 4\n' + patch + '    caption =', 1)
+          patch = ' fmt = str(row.get("FORMAT", "")).strip().lower()\n if fmt in ("carousel","single","single-post","singer-post","banner","infographic"):\n  v1 = str(row.get("IMAGE_PATH_1","") or row.get("IMAGE_PATH","")).strip()\n  if not v1:\n   print("[SKIP] row " + str(row_num) + ": " + fmt + " chua co anh")\n   continue\n'
+          new = content.replace(' row_num = i + 4\n caption =', ' row_num = i + 4\n' + patch + ' caption =', 1)
           open('poster.py', 'w', encoding='utf-8').write(new)
           print("patched" if new != content else "pattern not found")
           PYEOF
