@@ -23,17 +23,16 @@ jobs:
         run: |
           pip install gspread google-auth google-api-python-client requests pillow numpy openai
 
-      - name: Generate carousel images
+      - name: Generate carousel/single images
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           SHEET_ID:            ${{ secrets.SHEET_ID }}
           OPENAI_API_KEY:      ${{ secrets.OPENAI_API_KEY }}
           FB_PAGE_TOKEN:       ${{ secrets.FB_PAGE_TOKEN }}
-        run: python image_gen.py
+        run: python image_gen_carousel.py
 
-      - name: Post to Facebook
+      - name: Generate banner/infographic images
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           SHEET_ID:            ${{ secrets.SHEET_ID }}
-          FB_PAGE_TOKEN:       ${{ secrets.FB_PAGE_TOKEN }}
-        run: python poster.py
+          OPENAI_API_KEY:      ${{ secrets.OPENAI_API_
