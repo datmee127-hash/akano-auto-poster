@@ -4,6 +4,7 @@ image_gen.py - AKANO Auto Image Generator (unified)
 
 import os
 import json
+import random
 import subprocess
 import tempfile
 import gspread
@@ -30,6 +31,65 @@ sheet       = spreadsheet.worksheet("Post")
 
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
+
+# ── Photo pools cho SP layouts ────────────────────────────────────────────────
+_BASE = REPO_ROOT.parent  # MKT AKN - Copy/
+
+PHOTO_POOLS = {
+    "kho":       _BASE / "Ảnh thật" / "KHO AKN",
+    "container": _BASE / "Ảnh thật" / "Cotainer",
+    "vanphong":  _BASE / "Ảnh thật" / "Văn ph\xf2ng",
+}
+
+PHOTO_KEYWORDS = {
+    "container":  "container",
+    "logistics":  "container",
+    "nhap khau":  "container",
+    "nhập khẩu": "container",
+    "nhan vien":  "vanphong",
+    "nh\xe2n vi\xean": "vanphong",
+    "doi ngu":    "vanphong",
+    "đội ngũ": "vanphong",
+    "van phong":  "vanphong",
+    "văn ph\xf2ng": "vanphong",
+}
+
+
+def pick_photo(tieu_de, caption, layout):
+    """Chon random 1 anh that phu hop voi content."""
+    text = (tieu_de + " " + caption[:200]).lower()
+    if layout == "SP5":
+        folder_key = "vanphong"
+    else:
+        folder_key = "kho"
+        for kw, pool in PHOTO_KEYWORDS.items():
+            if kw in text:
+                folder_key = pool
+                break
+    folder = PHOTO_POOLS[folder_key]
+    photos = list(folder.glob("*.jpg")) + list(folder.glob("*.JPG")) + list(folder.glob("*.jpeg"))
+    if not photos:
+        print("[WARN] Khong tim thay anh trong " + str(folder) + ", dung kho mac dinh")
+        photos = list(PHOTO_POOLS["kho"].glob("*.jpg"))
+    chosen = random.choice(photos)
+    print("[INFO] Auto-pick anh: " + chosen.name + " (folder: " + folder_key + ")")
+    return str(chosen)
+
+
+def inject_photo_path(config, tieu_de, caption):
+    """Neu slide SP1-SP5 thieu photo_path -> tu fill bang pick_photo."""
+    PHOTO_LAYOUTS = {"SP1", "SP2", "SP3", "SP4", "SP5"}
+    for slide in config.get("slides", []):
+        layout = slide.get("layout", "")
+        if layout in PHOTO_LAYOUTS:
+            content = slide.get("content", {})
+            if not content.get("photo_path"):
+                content["photo_path"] = pick_photo(tieu_de, caption, layout)
+                slide["content"] = content
+    return config
+
+
+# ── GPT Prompts ───────────────────────────────────────────────────────────────
 
 CAROUSEL_PROMPT = """Ban la creative director AKANO -- kho si gia dung nhap khau B2B.
 Sinh JSON config carousel 4 slide. Brand: Navy #1A2D5A, Red #ED1C24. Headline Title Case.
@@ -60,27 +120,31 @@ Tra ve JSON theo dung schema nay, khong them gi khac:
 Chi tra JSON thuan, khong giai thich."""
 
 SINGLE_PROMPT = """Ban la creative director AKANO -- kho si gia dung nhap khau B2B.
-Chon layout va sinh JSON config cho 1 slide don. Headline Title Case.
+Chon layout va sinh JSON config cho 1 slide don co anh that. Headline Title Case.
 
 Quy tac chon layout:
-- S1: co 1 cau insight manh, co dong, viral
-- S2: bai viet suy nghi, triet ly, thuan text
-- S3: co so lieu / milestone / countdown
-- S4: meo thuc chien, checklist co bullet
+- SP1: anh toan khung, text de nhe, overlay navy
+- SP2: anh tren / navy block duoi, phan chia ro
+- SP3: anh lam nen mo, text noi bat
+- SP4: co stats / so lieu kem anh kho
+- SP5: co anh nguoi, visual navy manh (chi dung khi content lien quan den nhan su)
 
-Tra ve JSON theo dung 1 trong 4 schema, khong them gi khac:
+KHONG dien photo_path -- he thong tu dong chon anh.
 
-S1 (Quote):
-{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"S1","content":{"quote":"Cau quote manh\\n1-2 dong nua neu can","attribution":"— AKANO · Nguồn hàng kinh doanh"}}]}
+SP1 (Full Photo Overlay):
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP1","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","items":["Diem 1","Diem 2","Diem 3"],"cta":"Inbox để tư vấn nguồn hàng"}}]}
 
-S2 (Insight text):
-{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"S2","content":{"title":"Title 2-3 Dong\\nTitle Case","body":["Doan 1 dat van de.","Doan 2 phan tich co so lieu.","Doan 3 ket luan manh."],"cta":"Inbox để chia sẻ thêm"}}]}
+SP2 (Photo Split):
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP2","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","items":["Diem 1","Diem 2","Diem 3"],"cta":"Inbox để tư vấn nguồn hàng"}}]}
 
-S3 (Milestone/Stat):
-{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"S3","content":{"label":"LABEL CAPS","big_number":"300+","caption":"Mo ta ngan","subtext":"Cau giai thich 12-18 tu."}}]}
+SP3 (Blurred Photo BG):
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP3","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","items":["Diem 1","Diem 2","Diem 3"],"cta":"Inbox để tư vấn nguồn hàng"}}]}
 
-S4 (Tip/Checklist):
-{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"S4","content":{"label":"MEO KINH DOANH","headline":"Tieu De\\n2 Dong","items":["Item 1 ro rang","Item 2 thuc te","Item 3 ap dung ngay"],"cta":"Inbox để Akano tư vấn"}}]}
+SP4 (Photo Card + stats):
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP4","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","stats":[{"value":"100%","label":"CHINH NGACH"},{"value":"5 Nam","label":"KINH NGHIEM"},{"value":"500+","label":"SKU SAN KHO"}],"cta":"Inbox kiểm tra nguồn hàng","photo_v_anchor":0.5,"photo_full":false}}]}
+
+SP5 (VNPAY Hero - chi dung khi co anh nguoi):
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP5","content":{"label":"LABEL CAPS","headline":"Tieu De\\nNgan Gon\\n2-3 Dong","sub":"Shopee Mall · Siêu thị · B2B","features":["✓  Chinh ngach","✓  Hoa don VAT","✓  CO/CQ day du"],"cta":"Inbox nhận bảng giá sỉ","scale_boost":0.85,"person_up":0}}]}
 
 Chi tra JSON thuan, khong giai thich."""
 
@@ -164,13 +228,13 @@ if records:
     print("[DEBUG] Headers: " + str(list(records[0].keys())))
 
 for i, row in enumerate(records):
-    status   = str(row.get("STATUS", "")).strip()
+    status   = str(row.get("STATUS", "") or row.get("Trạng thái", "") or row.get("TRANG THAI", "")).strip()
     loai_anh = str(row.get("FORMAT", "") or row.get("Status anh", "")).strip().lower()
-    gio_dang = str(row.get("GIO DANG", "") or row.get("GIỜ ĐĂNG", "")).strip()
+    gio_dang = str(row.get("GIỜ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
     row_num  = i + 4
     headers  = list(row.keys())
 
-    if status in ("Da dang", "Đã đăng"):
+    if status in ("Da dang", "Đ\xe3 đăng"):
         continue
 
     if loai_anh not in ("carousel", "single", "singer-post", "single-post"):
@@ -182,13 +246,14 @@ for i, row in enumerate(records):
         if status not in ("Chua lam", "Chưa làm"):
             continue
 
-    # Doc tieu de va caption tu nhieu ten cot co the
-    tieu_de = ""
-    for key in headers:
-        if "tieu" in key.lower() and "de" in key.lower():
-            val = str(row.get(key, "")).strip()
-            if val:
-                tieu_de = val
+    tieu_de = str(row.get("TIÊU ĐỀ BÀI", "") or row.get("Tieu de", "") or row.get("TIEU DE", "")).strip()
+    if not tieu_de:
+        for key in headers:
+            kl = key.lower()
+            if ("tieu" in kl or "tiêu" in kl or "tiêu" in kl) and ("de" in kl or "đề" in kl):
+                val = str(row.get(key, "")).strip()
+                if val:
+                    tieu_de = val
                 break
 
     caption = ""
@@ -221,6 +286,9 @@ for i, row in enumerate(records):
 
     layout = slides[0].get("layout", "?")
     print("[INFO] Layout: " + layout)
+
+    # Auto-fill photo_path cho SP layouts
+    config = inject_photo_path(config, tieu_de, caption)
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
