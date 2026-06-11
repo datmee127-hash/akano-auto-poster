@@ -7,12 +7,16 @@ import json
 import random
 import subprocess
 import tempfile
+import base64
 import gspread
 import requests
+import numpy as np
+from io import BytesIO
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+from PIL import Image, ImageDraw, ImageFont
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 FB_TOKEN       = os.environ["FB_PAGE_TOKEN"]
@@ -216,7 +220,7 @@ KHONG dien photo_path -- he thong tu dong chon anh.
 
 SP4 (Photo Card + stats) -- stats PHAI CO DUNG 3 PHAN TU, label toi da 12 ky tu:
 {"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP4","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","stats":[{"value":"100%","label":"CHINH NGACH"},{"value":"5 Nam","label":"KINH NGHIEM"},{"value":"500+","label":"SKU SAN KHO"}],"cta":"Inbox kiem tra nguon hang","photo_v_anchor":0.5,"photo_full":false}}]}
-Bat buoc: mang stats chi co dung 3 phan tu. Vi du label tot: "CHINH NGACH", "CO VAT", "SAN KHO", "5 NAM".
+Bat buoc: mang stats chi co dung 3 phan tu. Truong "value" PHAI LA SO NGAN toi da 6 ky tu (vi du: "100%", "5 Nam", "500+", "2025", "12K") -- KHONG DUOC dien cau hoi hay mo ta dai vao "value". Vi du label tot: "CHINH NGACH", "CO VAT", "SAN KHO", "5 NAM".
 
 SP5 (VNPAY Hero):
 {"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP5","content":{"label":"LABEL CAPS","headline":"Tieu De\\nNgan Gon\\n2-3 Dong","sub":"Shopee Mall - Sieu thi - B2B","features":["Chinh ngach","Hoa don VAT","CO/CQ day du"],"cta":"Inbox nhan bang gia si","scale_boost":0.85,"person_up":0}}]}
@@ -256,6 +260,183 @@ def call_gpt(system_prompt, tieu_de, caption):
         print("[ERROR] Parse JSON that bai: " + str(e))
         print("[DEBUG] GPT raw output: " + raw[:300])
         return None
+
+
+BANNER_PROMPT = """Ban la creative director AKANO -- kho si gia dung nhap khau B2B.
+Sinh JSON config cho banner VNPAY-style dua tren tieu de va caption.
+
+Chon photo_source phu hop:
+- "container" neu bai lien quan den: nhap khau, logistics, container, hang tu TQ, taubiển
+- "vanphong" neu bai lien quan den: doi ngu, nhan vien, thuong hieu, cong ty
+- "kho" cho tat ca cac truong hop con lai (kho hang, nguon hang, gia si, SKU...)
+
+Tra ve JSON:
+{"topic":"slug-kebab","photo_source":"kho","headline":"Tieu De Dong 1\\nTieu De Dong 2","sub":"Diem 1 · Diem 2 · Diem 3","badges":["Badge 1","Badge 2","Badge 3","Badge 4"]}
+
+Quy tac:
+- headline: 2 dong, Title Case, dong 1 trang dong 2 vang
+- sub: 3 cum tu ngan cach bang dau cham giua
+- badges: dung 4 badge, moi badge 2-4 tu, Title Case
+- Chi tra JSON thuan, khong giai thich."""
+
+
+def call_gpt_banner_config(tieu_de, caption):
+    """GPT sinh headline/sub/badges/photo_source cho banner."""
+    user_msg = "Tieu de: " + tieu_de + "\n\nCaption:\n" + caption[:500]
+    res = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={"Authorization": "Bearer " + OPENAI_API_KEY, "Content-Type": "application/json"},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": BANNER_PROMPT},
+                {"role": "user",   "content": user_msg},
+            ],
+            "max_tokens": 400,
+            "temperature": 0.7,
+        },
+        timeout=60,
+    )
+    data = res.json()
+    if "choices" not in data:
+        print("[ERROR] GPT banner config loi: " + str(data))
+        return None
+    raw = data["choices"][0]["message"]["content"].strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+    try:
+        return json.loads(raw)
+    except Exception as e:
+        print("[ERROR] Parse banner config that bai: " + str(e))
+        return None
+
+
+def build_banner_image_prompt(cfg):
+    """Build VNPAY-style image prompt cho gpt-image-1."""
+    lines    = cfg.get("headline", "").split("\n")
+    line1    = lines[0].strip() if lines else ""
+    line2    = lines[1].strip() if len(lines) > 1 else ""
+    sub      = cfg.get("sub", "")
+    badges   = cfg.get("badges", [])
+    src_desc = {"container": "a large loaded container truck at logistics yard",
+                "kho":       "a warehouse interior with shelves full of household goods boxes",
+                "vanphong":  "a modern office interior with Akano branding"
+                }.get(cfg.get("photo_source", "kho"), "a warehouse with stacked goods")
+
+    return f"""Create a Vietnamese B2B wholesale promotional banner — VNPAY fintech visual style.
+CANVAS: 1024x1536px (2:3 portrait)
+
+BACKGROUND: Deep blue gradient #0A3FCC top → #1565C0 bottom. Add 3-5 diagonal speed lines (cyan/white, ~20% opacity). NO texture.
+
+HERO PHOTO: Use uploaded photo as FULL-BLEED fill, lower 55-65% of canvas, edge-to-edge. Subject: {src_desc}.
+- ZERO rounded corners, ZERO card frame around photo
+- ONLY top edge blends softly into gradient
+- Left/right/bottom edges: hard cuts touching canvas edges
+
+HEADLINE (top area y=8%-24%):
+- Line 1 ExtraBold WHITE: "{line1}"
+- Line 2 ExtraBold GOLD #FFD700: "{line2}"
+- Subtext light gray below: "{sub}"
+
+BADGES: 4 rotated pill badges (±15°, alternating) scattered y=28%-68%. White or navy #1A2D5A background.
+{chr(10).join(f'- "{b}"' for b in badges[:4])}
+
+COLORS: Blue #0A3FCC, Red #E53935, Gold #FFD700, White. High saturation.
+NO logo. NO bottom bar. No people.
+
+VIETNAMESE: Copy EXACTLY — every diacritic mandatory.
+"{line1}" · "{line2}" · "{sub}" · {" · ".join(f'"{b}"' for b in badges)}
+Hỏi tone (ả ẳ ổ ử ở ẩ) must be preserved exactly."""
+
+
+REPO_ROOT_BANNER  = Path(__file__).parent
+_frame_name       = "Frame dọc (Bài đăng Facebook).png"
+FRAME_PATH_BANNER = REPO_ROOT_BANNER / "assets" / _frame_name
+FONTS_DIR_BANNER  = REPO_ROOT_BANNER / "assets" / "fonts"
+
+
+def apply_frame_banner(raw_path):
+    """Composite Akano frame lên banner, trả về path post_final.png."""
+    if not FRAME_PATH_BANNER.exists():
+        print("[WARN] Frame khong tim thay, bo qua")
+        return raw_path
+    ai   = Image.open(raw_path).convert("RGB")
+    SW, SH = ai.size
+    frame = Image.open(FRAME_PATH_BANNER).convert("RGBA")
+    frame = frame.resize((SW, SH), Image.LANCZOS)
+    arr   = np.array(frame)
+    arr[:,:,3] = np.where(arr[:,:,3] > 5, 255, 0).astype(np.uint8)
+    frame = Image.fromarray(arr)
+    canvas = Image.new("RGBA", (SW, SH), (255,255,255,255))
+    canvas.paste(ai, (0,0))
+    result = Image.alpha_composite(canvas, frame)
+    out = raw_path.parent / "post_final.png"
+    result.convert("RGB").save(str(out), quality=95)
+    print("[frame]  post_final.png OK")
+    return out
+
+
+def generate_banner(tieu_de, caption, tmp_dir):
+    """Full banner flow: GPT config → Drive photo → gpt-image-1 → frame → PNG path."""
+    # Bước 1: GPT sinh config
+    cfg = call_gpt_banner_config(tieu_de, caption)
+    if not cfg:
+        print("[ERROR] Khong sinh duoc banner config")
+        return None
+    print("[banner] config: " + str(cfg))
+
+    # Bước 2: Lấy ảnh từ Drive
+    photo_source = cfg.get("photo_source", "kho")
+    photo_tmp = random_image_from_drive(photo_source)
+    if not photo_tmp:
+        # fallback sang folder khác
+        for fallback in ["kho", "container", "vanphong"]:
+            photo_tmp = random_image_from_drive(fallback)
+            if photo_tmp:
+                break
+    if not photo_tmp:
+        print("[ERROR] Khong lay duoc anh tu Drive cho banner")
+        return None
+
+    # Bước 3: Build image prompt
+    prompt = build_banner_image_prompt(cfg)
+
+    # Bước 4: Gọi gpt-image-1
+    import openai
+    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    image_data = None
+    try:
+        buf = BytesIO()
+        Image.open(photo_tmp).convert("RGB").save(buf, format="PNG")
+        buf.seek(0)
+        buf.name = "source.png"
+        resp = client.images.edit(
+            model="gpt-image-1", image=buf,
+            prompt=prompt, size="1024x1536", quality="high", n=1,
+        )
+        image_data = base64.b64decode(resp.data[0].b64_json)
+        print("[banner] gpt-image-1 edit OK")
+    except Exception as e:
+        print("[banner] edit failed, fallback generate: " + str(e))
+        try:
+            resp = client.images.generate(
+                model="gpt-image-1", prompt=prompt,
+                size="1024x1536", quality="high", n=1,
+            )
+            image_data = base64.b64decode(resp.data[0].b64_json)
+            print("[banner] gpt-image-1 generate OK")
+        except Exception as e2:
+            print("[ERROR] gpt-image-1 that bai: " + str(e2))
+            return None
+
+    # Bước 5: Lưu raw + apply frame
+    raw_path = Path(tmp_dir) / "raw_gpt.png"
+    raw_path.write_bytes(image_data)
+    final_path = apply_frame_banner(raw_path)
+    return final_path
 
 
 def render(config, tmp_dir):
@@ -312,7 +493,7 @@ for i, row in enumerate(records):
     if status in ("Da dang",):
         continue
 
-    if loai_anh not in ("carousel", "single", "singer-post", "single-post"):
+    if loai_anh not in ("carousel", "single", "singer-post", "single-post", "banner"):
         continue
 
     if status != "Test ngay":
@@ -345,6 +526,22 @@ for i, row in enumerate(records):
         print("[WARN] Caption trong, bo qua")
         continue
 
+    # ── BANNER flow ──────────────────────────────────────────────────────
+    if loai_anh == "banner":
+        print("[INFO] Banner flow: gpt-image-1 + Drive photo...")
+        with tempfile.TemporaryDirectory() as tmp:
+            final_png = generate_banner(tieu_de or caption[:80], caption, tmp)
+            if not final_png:
+                print("[ERROR] Banner that bai, bo qua")
+                continue
+            fb_id = upload_to_facebook(final_png)
+            if fb_id and "IMAGE_PATH_1" in headers:
+                sheet.update_cell(row_num, headers.index("IMAGE_PATH_1") + 1, fb_id)
+                print("[OK] IMAGE_PATH_1 = " + fb_id)
+        print("[OK] Dong " + str(row_num) + " xong!")
+        continue
+
+    # ── CAROUSEL / SINGLE flow ───────────────────────────────────────────
     is_carousel   = (loai_anh == "carousel")
     system_prompt = CAROUSEL_PROMPT if is_carousel else SINGLE_PROMPT
 
