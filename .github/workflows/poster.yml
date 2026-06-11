@@ -2,8 +2,8 @@ name: AKANO Auto Poster
 
 on:
   schedule:
-    - cron: '0 4 * * *'    # 11:00 SA giờ Việt Nam (UTC+7)
-    - cron: '0 10 * * *'   # 17:00 CH giờ Việt Nam (UTC+7)
+    - cron: '0 4 * * *'
+    - cron: '0 10 * * *'
   workflow_dispatch:
 
 jobs:
@@ -35,4 +35,13 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           SHEET_ID:            ${{ secrets.SHEET_ID }}
-          OPENAI_API_KEY:      ${{ secrets.OPENAI_API_
+          OPENAI_API_KEY:      ${{ secrets.OPENAI_API_KEY }}
+          FB_PAGE_TOKEN:       ${{ secrets.FB_PAGE_TOKEN }}
+        run: python image_gen.py
+
+      - name: Post to Facebook
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SHEET_ID:            ${{ secrets.SHEET_ID }}
+          FB_PAGE_TOKEN:       ${{ secrets.FB_PAGE_TOKEN }}
+        run: python poster.py
