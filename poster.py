@@ -199,22 +199,7 @@ def post_to_facebook(caption, row):
         )
         return res.json().get("id")
 
-    if len(photo_ids) == 1:
-        # 1 ảnh pre-uploaded: dùng /feed + object_attachment
-        res = requests.post(
-            "https://graph.facebook.com/v22.0/" + PAGE_ID + "/feed",
-            data={
-                "message":           caption,
-                "object_attachment": photo_ids[0],
-                "access_token":      FB_TOKEN,
-            },
-            timeout=30,
-        )
-        result = res.json()
-        print("[INFO] Ket qua dang bai (1 anh): " + str(result))
-        return result.get("id")
-
-    # Nhiều ảnh: dùng /feed + attached_media
+    # 1 hoặc nhiều ảnh: dùng /feed + attached_media (multipart)
     fields = [
         ("message",      (None, caption)),
         ("access_token", (None, FB_TOKEN)),
@@ -225,7 +210,7 @@ def post_to_facebook(caption, row):
     res    = requests.post("https://graph.facebook.com/v22.0/" + PAGE_ID + "/feed",
                            files=fields, timeout=30)
     result = res.json()
-    print("[INFO] Ket qua dang bai (multi anh): " + str(result))
+    print("[INFO] Ket qua dang bai: " + str(result))
     return result.get("id")
 
 
