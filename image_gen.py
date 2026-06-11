@@ -77,15 +77,33 @@ def pick_photo(tieu_de, caption, layout):
 
 
 def inject_photo_path(config, tieu_de, caption):
-    """Neu slide SP1-SP5 thieu photo_path -> tu fill bang pick_photo."""
+    """Neu slide SP1-SP5 thieu photo_path -> tu fill bang pick_photo.
+    Neu khong co anh -> fallback sang S4 graphic layout."""
     PHOTO_LAYOUTS = {"SP1", "SP2", "SP3", "SP4", "SP5"}
     for slide in config.get("slides", []):
         layout = slide.get("layout", "")
         if layout in PHOTO_LAYOUTS:
             content = slide.get("content", {})
             if not content.get("photo_path"):
-                content["photo_path"] = pick_photo(tieu_de, caption, layout)
-                slide["content"] = content
+                photo = pick_photo(tieu_de, caption, layout)
+                if photo:
+                    content["photo_path"] = photo
+                    slide["content"] = content
+                else:
+                    # Khong co anh -> doi sang S4 Tip Card (graphic, khong can anh)
+                    print("[INFO] Fallback: " + layout + " -> S4 (khong co anh tren server)")
+                    slide["layout"] = "S4"
+                    headline = (tieu_de[:45] + "\nAkano Nguon Hang") if tieu_de else "Nguon Hang\nChinh Ngach"
+                    slide["content"] = {
+                        "label": "NGUON HANG SI",
+                        "headline": headline,
+                        "items": [
+                            "Hang chinh ngach, co CO/CQ day du",
+                            "500+ SKU san kho, giao ngay",
+                            "Hoa don VAT -- ban duoc moi kenh",
+                        ],
+                        "cta": "Inbox nhan bang gia si",
+                    }
     return config
 
 
