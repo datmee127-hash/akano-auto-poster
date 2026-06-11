@@ -199,7 +199,23 @@ def post_to_facebook(caption, row):
         )
         return res.json().get("id")
 
-    # Dung multipart/form-data de brackets [0],[1]... khong bi URL-encode thanh %5B%5D
+    if len(photo_ids) == 1:
+        # 1 ảnh: publish trực tiếp qua /photos với published=true + caption
+        res = requests.post(
+            "https://graph.facebook.com/v22.0/" + PAGE_ID + "/photos",
+            data={
+                "fbid":          photo_ids[0],
+                "caption":       caption,
+                "published":     "true",
+                "access_token":  FB_TOKEN,
+            },
+            timeout=30,
+        )
+        result = res.json()
+        print("[INFO] Ket qua dang bai (1 anh): " + str(result))
+        return result.get("id") or result.get("post_id")
+
+    # Nhiều ảnh: dùng /feed + attached_media
     fields = [
         ("message",      (None, caption)),
         ("access_token", (None, FB_TOKEN)),
@@ -210,7 +226,7 @@ def post_to_facebook(caption, row):
     res    = requests.post("https://graph.facebook.com/v22.0/" + PAGE_ID + "/feed",
                            files=fields, timeout=30)
     result = res.json()
-    print("[INFO] Ket qua dang bai: " + str(result))
+    print("[INFO] Ket qua dang bai (multi anh): " + str(result))
     return result.get("id")
 
 
