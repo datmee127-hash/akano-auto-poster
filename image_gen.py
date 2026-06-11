@@ -38,13 +38,12 @@ def load_folder_map():
     try:
         folders_sheet = spreadsheet.worksheet("FOLDERS")
         records = folders_sheet.get_all_records()
-        result = {}
-        for r in records:
-            ten = str(r.get("TEN", "") or r.get("TEN", "") or r.get("Ten", "")).strip().lower()
-            fid = str(r.get("FOLDER_ID", "") or r.get("Folder ID", "") or r.get("folder_id", "")).strip()
-            if ten and fid:
-                result[ten] = fid
-        print("[INFO] FOLDER_MAP: " + str(list(result.keys())))
+        result = {
+            str(r.get("TÊN", "") or r.get("TEN", "") or r.get("Ten", "")).strip().lower():
+            str(r.get("FOLDER_ID", "")).strip()
+            for r in records if r.get("FOLDER_ID")
+        }
+        print("[INFO] FOLDER_MAP: " + str(result))
         return result
     except Exception as e:
         print("[WARN] Khong doc duoc tab FOLDERS: " + str(e))
@@ -56,7 +55,7 @@ FOLDER_MAP = load_folder_map()
 FOLDER_ALIASES = {
     "kho":       ["kho", "kho akn", "kho anh", "kho akano", "kho hang"],
     "container": ["container", "cotainer", "cont", "container akn"],
-    "vanphong":  ["van phong", "vanphong", "vp", "van phong akn"],
+    "vanphong":  ["van phong", "vanphong", "vp", "van phong akn", "van-phong"],
 }
 
 
@@ -305,7 +304,7 @@ if records:
 for i, row in enumerate(records):
     status   = str(row.get("STATUS", "") or row.get("TRANG THAI", "")).strip()
     loai_anh = str(row.get("Status ảnh", "") or row.get("Status anh", "") or row.get("FORMAT", "")).strip().lower()
-    gio_dang = str(row.get("GIO DANG", "") or row.get("GIO DANG", "")).strip()
+    gio_dang = str(row.get("GIỜ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
     row_num  = i + 4
     headers  = list(row.keys())
 
@@ -321,7 +320,7 @@ for i, row in enumerate(records):
         if status not in ("Chua lam",):
             continue
 
-    tieu_de = str(row.get("TIEU DE BAI", "") or row.get("Tieu de", "") or row.get("TIEU DE", "")).strip()
+    tieu_de = str(row.get("TIÊU ĐỀ BÀI", "") or row.get("TIEU DE BAI", "") or row.get("Tieu de", "") or row.get("TIEU DE", "")).strip()
     if not tieu_de:
         for key in headers:
             kl = key.lower()
