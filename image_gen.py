@@ -32,13 +32,13 @@ sheet       = spreadsheet.worksheet("Post")
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
-# ── Photo pools cho SP layouts ────────────────────────────────────────────────
+# ── Photo pools cho SP layouts ────────────────────────────────────────────
 _BASE = REPO_ROOT.parent  # MKT AKN - Copy/
 
 PHOTO_POOLS = {
     "kho":       _BASE / "Ảnh thật" / "KHO AKN",
     "container": _BASE / "Ảnh thật" / "Cotainer",
-    "vanphong":  _BASE / "Ảnh thật" / "Văn ph\xf2ng",
+    "vanphong":  _BASE / "Ảnh thật" / "Văn phòng",
 }
 
 PHOTO_KEYWORDS = {
@@ -47,11 +47,11 @@ PHOTO_KEYWORDS = {
     "nhap khau":  "container",
     "nhập khẩu": "container",
     "nhan vien":  "vanphong",
-    "nh\xe2n vi\xean": "vanphong",
+    "nhân viên": "vanphong",
     "doi ngu":    "vanphong",
     "đội ngũ": "vanphong",
     "van phong":  "vanphong",
-    "văn ph\xf2ng": "vanphong",
+    "văn phòng": "vanphong",
 }
 
 
@@ -89,7 +89,7 @@ def inject_photo_path(config, tieu_de, caption):
     return config
 
 
-# ── GPT Prompts ───────────────────────────────────────────────────────────────
+# ── GPT Prompts ─────────────────────────────────────────────────────────────────────────────
 
 CAROUSEL_PROMPT = """Ban la creative director AKANO -- kho si gia dung nhap khau B2B.
 Sinh JSON config carousel 4 slide. Brand: Navy #1A2D5A, Red #ED1C24. Headline Title Case.
@@ -216,7 +216,7 @@ def upload_to_facebook(png_path):
     return None
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ── Main ────────────────────────────────────────────────────────────────────────────────
 
 vn_tz        = timezone(timedelta(hours=7))
 current_time = datetime.now(vn_tz).strftime("%H:%M")
@@ -229,12 +229,12 @@ if records:
 
 for i, row in enumerate(records):
     status   = str(row.get("STATUS", "") or row.get("Trạng thái", "") or row.get("TRANG THAI", "")).strip()
-    loai_anh = str(row.get("FORMAT", "") or row.get("Status anh", "")).strip().lower()
-    gio_dang = str(row.get("GIỜ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
+    loai_anh = str(row.get("Status ảnh", "") or row.get("Status anh", "") or row.get("FORMAT", "")).strip().lower()
+    gio_dang = str(row.get("GIờ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
     row_num  = i + 4
     headers  = list(row.keys())
 
-    if status in ("Da dang", "Đ\xe3 đăng"):
+    if status in ("Da dang", "Đã đăng"):
         continue
 
     if loai_anh not in ("carousel", "single", "singer-post", "single-post"):
@@ -250,7 +250,7 @@ for i, row in enumerate(records):
     if not tieu_de:
         for key in headers:
             kl = key.lower()
-            if ("tieu" in kl or "tiêu" in kl or "tiêu" in kl) and ("de" in kl or "đề" in kl):
+            if ("tieu" in kl or "tiêu" in kl or "tiều" in kl) and ("de" in kl or "đề" in kl):
                 val = str(row.get(key, "")).strip()
                 if val:
                     tieu_de = val
