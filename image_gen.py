@@ -485,7 +485,7 @@ if records:
 
 for i, row in enumerate(records):
     status   = str(row.get("STATUS", "") or row.get("TRANG THAI", "")).strip()
-    loai_anh = str(row.get("Status ảnh", "") or row.get("Status anh", "") or row.get("FORMAT", "")).strip().lower()
+    loai_anh = str(row.get("FORMAT", "") or row.get("Status ảnh", "") or row.get("Status anh", "")).strip().lower()
     gio_dang = str(row.get("GIỜ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
     row_num  = i + 4
     headers  = list(row.keys())
