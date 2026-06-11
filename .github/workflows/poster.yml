@@ -23,7 +23,7 @@ jobs:
         run: |
           pip install gspread google-auth google-api-python-client requests pillow numpy openai
 
-      - name: Generate carousel/single images
+      - name: Generate carousel images
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           SHEET_ID:            ${{ secrets.SHEET_ID }}
