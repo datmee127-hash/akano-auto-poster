@@ -55,7 +55,7 @@ FOLDER_MAP = load_folder_map()
 FOLDER_ALIASES = {
     "kho":       ["kho", "kho akn", "kho anh", "kho akano", "kho hang"],
     "container": ["container", "cotainer", "cont", "container akn"],
-    "vanphong":  ["van phong", "vanphong", "vp", "van phong akn", "van-phong"],
+    "vanphong":  ["van phong", "vanphong", "vp", "van phong akn"],
 }
 
 
@@ -214,8 +214,9 @@ Quy tac chon layout:
 
 KHONG dien photo_path -- he thong tu dong chon anh.
 
-SP4 (Photo Card + stats):
+SP4 (Photo Card + stats) -- stats PHAI CO DUNG 3 PHAN TU, label toi da 12 ky tu:
 {"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP4","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","stats":[{"value":"100%","label":"CHINH NGACH"},{"value":"5 Nam","label":"KINH NGHIEM"},{"value":"500+","label":"SKU SAN KHO"}],"cta":"Inbox kiem tra nguon hang","photo_v_anchor":0.5,"photo_full":false}}]}
+Bat buoc: mang stats chi co dung 3 phan tu. Vi du label tot: "CHINH NGACH", "CO VAT", "SAN KHO", "5 NAM".
 
 SP5 (VNPAY Hero):
 {"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP5","content":{"label":"LABEL CAPS","headline":"Tieu De\\nNgan Gon\\n2-3 Dong","sub":"Shopee Mall - Sieu thi - B2B","features":["Chinh ngach","Hoa don VAT","CO/CQ day du"],"cta":"Inbox nhan bang gia si","scale_boost":0.85,"person_up":0}}]}
