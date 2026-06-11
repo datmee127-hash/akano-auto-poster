@@ -200,20 +200,19 @@ def post_to_facebook(caption, row):
         return res.json().get("id")
 
     if len(photo_ids) == 1:
-        # 1 ảnh: publish trực tiếp qua /photos với published=true + caption
+        # 1 ảnh pre-uploaded: dùng /feed + object_attachment
         res = requests.post(
-            "https://graph.facebook.com/v22.0/" + PAGE_ID + "/photos",
+            "https://graph.facebook.com/v22.0/" + PAGE_ID + "/feed",
             data={
-                "fbid":          photo_ids[0],
-                "caption":       caption,
-                "published":     "true",
-                "access_token":  FB_TOKEN,
+                "message":           caption,
+                "object_attachment": photo_ids[0],
+                "access_token":      FB_TOKEN,
             },
             timeout=30,
         )
         result = res.json()
         print("[INFO] Ket qua dang bai (1 anh): " + str(result))
-        return result.get("id") or result.get("post_id")
+        return result.get("id")
 
     # Nhiều ảnh: dùng /feed + attached_media
     fields = [
