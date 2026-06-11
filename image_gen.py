@@ -414,7 +414,7 @@ def generate_banner(tieu_de, caption, tmp_dir):
         buf.seek(0)
         buf.name = "source.png"
         resp = client.images.edit(
-            model="gpt-image-1.5", image=buf,
+            model="gpt-image-2", image=buf,
             prompt=prompt, size="1024x1536", quality="high", n=1,
         )
         image_data = base64.b64decode(resp.data[0].b64_json)
@@ -423,7 +423,7 @@ def generate_banner(tieu_de, caption, tmp_dir):
         print("[banner] edit failed, fallback generate: " + str(e))
         try:
             resp = client.images.generate(
-                model="gpt-image-1.5", prompt=prompt,
+                model="gpt-image-2", prompt=prompt,
                 size="1024x1536", quality="high", n=1,
             )
             image_data = base64.b64decode(resp.data[0].b64_json)
