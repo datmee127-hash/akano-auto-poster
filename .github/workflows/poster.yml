@@ -39,6 +39,14 @@ jobs:
           FB_PAGE_TOKEN:       ${{ secrets.FB_PAGE_TOKEN }}
         run: python image_gen.py
 
+      - name: Generate single post images
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SHEET_ID:            ${{ secrets.SHEET_ID }}
+          OPENAI_API_KEY:      ${{ secrets.OPENAI_API_KEY }}
+          FB_PAGE_TOKEN:       ${{ secrets.FB_PAGE_TOKEN }}
+        run: python image_gen_single.py
+
       - name: Patch poster before posting
         run: |
           python - <<'PYEOF'
