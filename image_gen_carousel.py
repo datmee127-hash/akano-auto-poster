@@ -208,14 +208,18 @@ CAROUSEL_FORMATS = ("carousel",)
 
 records = sheet.get_all_records(head=3)
 
-# DEBUG: in ra column headers va FORMAT values
+# DEBUG: tong hop FORMAT x STATUS de chuan doan
 if records:
     print("[DEBUG] Column headers: " + str(list(records[0].keys())))
-    for r in records[:5]:
-        fmt = str(r.get("FORMAT","") or r.get("Status anh","") or r.get("Status anh","")).strip()
+    fmt_sta = {}
+    for r in records:
+        fmt = str(r.get("FORMAT","")).strip()
         sta = str(r.get("STATUS","")).strip()
-        if fmt or sta:
-            print("[DEBUG] FORMAT='" + fmt + "' STATUS='" + sta + "'")
+        k = fmt + " | " + sta
+        fmt_sta[k] = fmt_sta.get(k, 0) + 1
+    for k, v in sorted(fmt_sta.items()):
+        if k.strip(" |"):
+            print("[DEBUG] " + k + " => " + str(v) + " rows")
 
 print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
