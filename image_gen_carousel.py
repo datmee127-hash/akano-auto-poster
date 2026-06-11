@@ -37,6 +37,44 @@ sheet       = spreadsheet.worksheet("Post")
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
+SYSTEM_PROMPT_SINGLE = """
+Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
+Nhiem vu: dua vao tieu de va caption bai dang, sinh ra JSON config cho tool render 1 slide DUNG (single post).
+
+Brand voice: Nguoi trong nghe noi voi nguoi dang kinh doanh -- thang, thuc chien, khong hoa my.
+Audience: chu shop online, seller TMDT, chu kho si, dai ly phan phoi.
+Visual: Editorial magazine B2B -- Navy #1A2D5A, Red #ED1C24, White. Headline Title Case Bold.
+
+JSON schema bat buoc (chi 1 slide, layout S2 hoac S4):
+{
+  "topic": "<slug-khong-dau>",
+  "output_dir": "output/<slug>",
+  "caption": "<noi dung caption tu input, giu nguyen>",
+  "hashtags": ["akano", "nguonhangsi"],
+  "slides": [
+    {
+      "layout": "S2",
+      "content": {
+        "title": "<tieu de 4-7 tu, Title Case, 2 dong>",
+        "body": [
+          "<doan 1 -- dat van de 2-3 cau>",
+          "<doan 2 -- goc nhin cu the, co so lieu>",
+          "<doan 3 -- bai hoc / conclusion>"
+        ],
+        "cta": "Inbox de duoc tu van nguon hang"
+      }
+    }
+  ]
+}
+
+Quy tac:
+- Chi sinh 1 slide duy nhat
+- Layout S2 neu insight/van de, layout S4 neu checklist/meo
+- S4 schema: {"label": "...", "headline": "...", "items": ["...", "...", "..."], "cta": "..."}
+- Headline Title Case, khong CAPS toan bo
+- Chi tra ve JSON thuan, khong giai thich them
+""".strip()
+
 SYSTEM_PROMPT = """
 Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
 Nhiem vu: dua vao tieu de va caption bai dang, sinh ra JSON config cho tool render carousel 4 slide.
@@ -101,8 +139,10 @@ Quy tac:
 """.strip()
 
 
-def generate_config(tieu_de, caption):
+def generate_config(tieu_de, caption, is_single=False):
     user_msg = "Tieu de bai: " + tieu_de + "\n\nCaption:\n" + caption
+    prompt   = SYSTEM_PROMPT_SINGLE if is_single else SYSTEM_PROMPT
+    max_tok  = 600 if is_single else 1200
     res = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={
@@ -112,10 +152,10 @@ def generate_config(tieu_de, caption):
         json={
             "model": "gpt-4o-mini",
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": prompt},
                 {"role": "user", "content": user_msg},
             ],
-            "max_tokens": 1200,
+            "max_tokens": max_tok,
             "temperature": 0.7,
         },
         timeout=60,
@@ -210,8 +250,9 @@ for i, row in enumerate(records):
         print("[WARN] Caption trong, bo qua")
         continue
 
-    print("[INFO] Goi GPT sinh JSON config...")
-    config = generate_config(tieu_de or caption[:80], caption)
+    is_single = loai_anh in ("single", "singer-post", "single-post")
+    print("[INFO] Goi GPT sinh JSON config (loai: " + ("single" if is_single else "carousel") + ")...")
+    config = generate_config(tieu_de or caption[:80], caption, is_single=is_single)
     if not config:
         print("[ERROR] Dong " + str(row_num) + ": Khong sinh duoc config, bo qua")
         continue
@@ -225,8 +266,10 @@ for i, row in enumerate(records):
             continue
 
         img_cols = ["IMAGE_PATH_1", "IMAGE_PATH_2", "IMAGE_PATH_3", "IMAGE_PATH_4"]
+        # Single post: chi upload 1 anh dau
+        upload_pngs = pngs[:1] if is_single else pngs[:4]
 
-        for idx, png_path in enumerate(pngs[:4]):
+        for idx, png_path in enumerate(upload_pngs):
             col_name = img_cols[idx]
             fb_id = upload_to_facebook(png_path)
             if fb_id and col_name in headers:
