@@ -494,12 +494,16 @@ for i, row in enumerate(records):
         continue
 
     if loai_anh not in ("carousel", "single", "singer-post", "single-post", "banner"):
+        if loai_anh:
+            print("[SKIP] Dong " + str(row_num) + " loai_anh='" + loai_anh + "' khong hop le")
         continue
 
     if status != "Test ngay":
         if gio_dang != current_time:
+            print("[SKIP] Dong " + str(row_num) + " gio_dang='" + gio_dang + "' != '" + current_time + "'")
             continue
         if status not in ("Chua lam",):
+            print("[SKIP] Dong " + str(row_num) + " status='" + status + "' khong phai Chua lam")
             continue
 
     tieu_de = str(row.get("TIÊU ĐỀ BÀI", "") or row.get("TIEU DE BAI", "") or row.get("Tieu de", "") or row.get("TIEU DE", "")).strip()
