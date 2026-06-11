@@ -228,7 +228,7 @@ current_time = datetime.now(vn_tz).strftime("%H:%M")
 print("[INFO] Gio Viet Nam: " + current_time)
 
 for i, row in enumerate(records):
-    loai_anh = str(row.get("FORMAT", "") or row.get("Status anh", "") or row.get("Status ảnh", "")).strip().lower()
+    loai_anh = str(row.get("Status ảnh", "") or row.get("Status anh", "") or row.get("STATUS ANH", "")).strip().lower()
 
     is_carousel = loai_anh in CAROUSEL_FORMATS
     is_single   = loai_anh in SINGLE_FORMATS
