@@ -16,6 +16,7 @@ import gspread
 import requests
 from pathlib import Path
 from google.oauth2.service_account import Credentials
+from datetime import datetime, timezone, timedelta
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 FB_TOKEN       = os.environ["FB_PAGE_TOKEN"]
@@ -178,15 +179,24 @@ def upload_to_facebook(png_path):
 records = sheet.get_all_records(head=3)
 print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
+vn_tz        = timezone(timedelta(hours=7))
+current_time = datetime.now(vn_tz).strftime("%H:%M")
+print("[INFO] Gio Viet Nam: " + current_time)
+
 for i, row in enumerate(records):
-    loai_anh = str(row.get("Status anh", "") or row.get("Status ảnh", "")).strip().lower()
-    if loai_anh != "carousel":
+    loai_anh = str(row.get("FORMAT", "") or row.get("Status anh", "") or row.get("Status ảnh", "")).strip().lower()
+    if loai_anh not in ("carousel", "single", "singer-post", "single-post"):
         continue
 
-    # Chi skip neu bai da duoc dang thanh cong
-    status = str(row.get("STATUS", "")).strip()
+    status   = str(row.get("STATUS", "")).strip()
+    gio_dang = str(row.get("GIỜ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
+
     if status in ("Đã đăng", "Da dang"):
-        print("[SKIP] Dong " + str(i + 4) + ": da dang roi, bo qua")
+        continue
+
+    if status == "Test ngay":
+        pass
+    elif gio_dang != current_time or status not in ("Chua lam", "Chưa làm"):
         continue
 
     row_num = i + 4
