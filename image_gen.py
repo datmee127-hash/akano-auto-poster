@@ -12,6 +12,7 @@ import requests
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
 
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 FB_TOKEN       = os.environ["FB_PAGE_TOKEN"]
@@ -29,34 +30,98 @@ gs_client   = gspread.authorize(creds)
 spreadsheet = gs_client.open_by_key(os.environ["SHEET_ID"])
 sheet       = spreadsheet.worksheet("Post")
 
+# Google Drive client
+drive = build("drive", "v3", credentials=creds)
+
+
+def load_folder_map():
+    try:
+        folders_sheet = spreadsheet.worksheet("FOLDERS")
+        records = folders_sheet.get_all_records()
+        result = {}
+        for r in records:
+            ten = str(r.get("TEN", "") or r.get("TEN", "") or r.get("Ten", "")).strip().lower()
+            fid = str(r.get("FOLDER_ID", "") or r.get("Folder ID", "") or r.get("folder_id", "")).strip()
+            if ten and fid:
+                result[ten] = fid
+        print("[INFO] FOLDER_MAP: " + str(list(result.keys())))
+        return result
+    except Exception as e:
+        print("[WARN] Khong doc duoc tab FOLDERS: " + str(e))
+        return {}
+
+
+FOLDER_MAP = load_folder_map()
+
+FOLDER_ALIASES = {
+    "kho":       ["kho", "kho akn", "kho anh", "kho akano", "kho hang"],
+    "container": ["container", "cotainer", "cont", "container akn"],
+    "vanphong":  ["van phong", "vanphong", "vp", "van phong akn"],
+}
+
+
+def find_folder_id(folder_key):
+    aliases = FOLDER_ALIASES.get(folder_key, [folder_key])
+    for alias in aliases:
+        if alias in FOLDER_MAP:
+            return FOLDER_MAP[alias]
+    for map_key, fid in FOLDER_MAP.items():
+        for alias in aliases:
+            if alias in map_key or map_key in alias:
+                return fid
+    return None
+
+
+def random_image_from_drive(folder_key):
+    folder_id = find_folder_id(folder_key)
+    if not folder_id:
+        print("[WARN] Khong tim thay Drive folder cho '" + folder_key + "' trong FOLDER_MAP")
+        return None
+    try:
+        result = drive.files().list(
+            q="'" + folder_id + "' in parents and mimeType contains 'image/' and trashed=false",
+            fields="files(id, name)",
+            pageSize=100,
+        ).execute()
+        files = result.get("files", [])
+        if not files:
+            print("[WARN] Drive folder '" + folder_key + "' khong co file nao")
+            return None
+        chosen = random.choice(files)
+        print("[INFO] Drive pick: " + chosen["name"] + " (folder: " + folder_key + ")")
+        file_bytes = drive.files().get_media(fileId=chosen["id"]).execute()
+        ext = chosen["name"].rsplit(".", 1)[-1] if "." in chosen["name"] else "jpg"
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix="." + ext, dir="/tmp")
+        tmp.write(file_bytes)
+        tmp.close()
+        return tmp.name
+    except Exception as e:
+        print("[WARN] Loi lay anh tu Drive '" + folder_key + "': " + str(e))
+        return None
+
+
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
-# ── Photo pools cho SP layouts ────────────────────────────────────────────
-_BASE = REPO_ROOT.parent  # MKT AKN - Copy/
+_BASE = REPO_ROOT.parent
 
 PHOTO_POOLS = {
-    "kho":       _BASE / "Ảnh thật" / "KHO AKN",
-    "container": _BASE / "Ảnh thật" / "Cotainer",
-    "vanphong":  _BASE / "Ảnh thật" / "Văn phòng",
+    "kho":       _BASE / "Anh that" / "KHO AKN",
+    "container": _BASE / "Anh that" / "Cotainer",
+    "vanphong":  _BASE / "Anh that" / "Van phong",
 }
 
 PHOTO_KEYWORDS = {
     "container":  "container",
     "logistics":  "container",
     "nhap khau":  "container",
-    "nhập khẩu": "container",
     "nhan vien":  "vanphong",
-    "nhân viên": "vanphong",
     "doi ngu":    "vanphong",
-    "đội ngũ": "vanphong",
     "van phong":  "vanphong",
-    "văn phòng": "vanphong",
 }
 
 
 def pick_photo(tieu_de, caption, layout):
-    """Chon random 1 anh that phu hop voi content. Returns None neu khong co anh."""
     text = (tieu_de + " " + caption[:200]).lower()
     if layout == "SP5":
         folder_key = "vanphong"
@@ -71,15 +136,18 @@ def pick_photo(tieu_de, caption, layout):
         photos = list(folder.glob("*.jpg")) + list(folder.glob("*.JPG")) + list(folder.glob("*.jpeg"))
         if photos:
             chosen = random.choice(photos)
-            print("[INFO] Auto-pick anh: " + chosen.name + " (folder: " + key + ")")
+            print("[INFO] Local pick: " + chosen.name + " (folder: " + key + ")")
             return str(chosen)
-    print("[WARN] Khong co anh (server env) - dung fallback graphic layout")
+    print("[INFO] Khong co anh local, thu Google Drive...")
+    for key in [folder_key, "kho", "container", "vanphong"]:
+        path = random_image_from_drive(key)
+        if path:
+            return path
+    print("[WARN] Khong co anh tu Drive lan local")
     return None
 
 
 def inject_photo_path(config, tieu_de, caption):
-    """Neu slide SP1-SP5 thieu photo_path -> tu fill bang pick_photo.
-    Neu khong co anh -> fallback sang S4 graphic layout."""
     PHOTO_LAYOUTS = {"SP1", "SP2", "SP3", "SP4", "SP5"}
     for slide in config.get("slides", []):
         layout = slide.get("layout", "")
@@ -91,8 +159,7 @@ def inject_photo_path(config, tieu_de, caption):
                     content["photo_path"] = photo
                     slide["content"] = content
                 else:
-                    # Khong co anh -> doi sang S4 Tip Card (graphic, khong can anh)
-                    print("[INFO] Fallback: " + layout + " -> S4 (khong co anh tren server)")
+                    print("[INFO] Fallback: " + layout + " -> S4")
                     slide["layout"] = "S4"
                     headline = (tieu_de[:45] + "\nAkano Nguon Hang") if tieu_de else "Nguon Hang\nChinh Ngach"
                     slide["content"] = {
@@ -101,14 +168,12 @@ def inject_photo_path(config, tieu_de, caption):
                         "items": [
                             "Hang chinh ngach, co CO/CQ day du",
                             "500+ SKU san kho, giao ngay",
-                            "Hoa don VAT -- ban duoc moi kenh",
+                            "Hoa don VAT - ban duoc moi kenh",
                         ],
                         "cta": "Inbox nhan bang gia si",
                     }
     return config
 
-
-# ── GPT Prompts ─────────────────────────────────────────────────────────────────────────────
 
 CAROUSEL_PROMPT = """Ban la creative director AKANO -- kho si gia dung nhap khau B2B.
 Sinh JSON config carousel 4 slide. Brand: Navy #1A2D5A, Red #ED1C24. Headline Title Case.
@@ -131,8 +196,8 @@ Tra ve JSON theo dung schema nay, khong them gi khac:
     {"layout": "L5", "content": {
       "headline": "CTA Headline\\n2-3 Dong",
       "subtext": "Cau ket 1-2 dong",
-      "cta": "Inbox để nhận tư vấn nguồn hàng",
-      "footer": "AKANO - NGUỒN HÀNG KINH DOANH - akano.vn - 0988.198.158"
+      "cta": "Inbox de nhan tu van nguon hang",
+      "footer": "AKANO - NGUON HANG KINH DOANH - akano.vn - 0988.198.158"
     }}
   ]
 }
@@ -146,24 +211,15 @@ Quy tac chon layout:
 - SP2: anh tren / navy block duoi, phan chia ro
 - SP3: anh lam nen mo, text noi bat
 - SP4: co stats / so lieu kem anh kho
-- SP5: co anh nguoi, visual navy manh (chi dung khi content lien quan den nhan su)
+- SP5: co anh nguoi, visual navy manh
 
 KHONG dien photo_path -- he thong tu dong chon anh.
 
-SP1 (Full Photo Overlay):
-{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP1","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","items":["Diem 1","Diem 2","Diem 3"],"cta":"Inbox để tư vấn nguồn hàng"}}]}
-
-SP2 (Photo Split):
-{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP2","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","items":["Diem 1","Diem 2","Diem 3"],"cta":"Inbox để tư vấn nguồn hàng"}}]}
-
-SP3 (Blurred Photo BG):
-{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP3","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","items":["Diem 1","Diem 2","Diem 3"],"cta":"Inbox để tư vấn nguồn hàng"}}]}
-
 SP4 (Photo Card + stats):
-{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP4","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","stats":[{"value":"100%","label":"CHINH NGACH"},{"value":"5 Nam","label":"KINH NGHIEM"},{"value":"500+","label":"SKU SAN KHO"}],"cta":"Inbox kiểm tra nguồn hàng","photo_v_anchor":0.5,"photo_full":false}}]}
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP4","content":{"label":"LABEL CAPS","headline":"Tieu De Chinh\\n2 Dong","stats":[{"value":"100%","label":"CHINH NGACH"},{"value":"5 Nam","label":"KINH NGHIEM"},{"value":"500+","label":"SKU SAN KHO"}],"cta":"Inbox kiem tra nguon hang","photo_v_anchor":0.5,"photo_full":false}}]}
 
-SP5 (VNPAY Hero - chi dung khi co anh nguoi):
-{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP5","content":{"label":"LABEL CAPS","headline":"Tieu De\\nNgan Gon\\n2-3 Dong","sub":"Shopee Mall · Siêu thị · B2B","features":["✓  Chinh ngach","✓  Hoa don VAT","✓  CO/CQ day du"],"cta":"Inbox nhận bảng giá sỉ","scale_boost":0.85,"person_up":0}}]}
+SP5 (VNPAY Hero):
+{"topic":"slug","output_dir":"output/slug","caption":"(giu nguyen)","hashtags":["akano"],"slides":[{"layout":"SP5","content":{"label":"LABEL CAPS","headline":"Tieu De\\nNgan Gon\\n2-3 Dong","sub":"Shopee Mall - Sieu thi - B2B","features":["Chinh ngach","Hoa don VAT","CO/CQ day du"],"cta":"Inbox nhan bang gia si","scale_boost":0.85,"person_up":0}}]}
 
 Chi tra JSON thuan, khong giai thich."""
 
@@ -235,7 +291,7 @@ def upload_to_facebook(png_path):
     return None
 
 
-# ── Main ────────────────────────────────────────────────────────────────────────────────
+# Main
 
 vn_tz        = timezone(timedelta(hours=7))
 current_time = datetime.now(vn_tz).strftime("%H:%M")
@@ -247,13 +303,13 @@ if records:
     print("[DEBUG] Headers: " + str(list(records[0].keys())))
 
 for i, row in enumerate(records):
-    status   = str(row.get("STATUS", "") or row.get("Trạng thái", "") or row.get("TRANG THAI", "")).strip()
+    status   = str(row.get("STATUS", "") or row.get("TRANG THAI", "")).strip()
     loai_anh = str(row.get("Status ảnh", "") or row.get("Status anh", "") or row.get("FORMAT", "")).strip().lower()
-    gio_dang = str(row.get("GIờ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
+    gio_dang = str(row.get("GIO DANG", "") or row.get("GIO DANG", "")).strip()
     row_num  = i + 4
     headers  = list(row.keys())
 
-    if status in ("Da dang", "Đã đăng"):
+    if status in ("Da dang",):
         continue
 
     if loai_anh not in ("carousel", "single", "singer-post", "single-post"):
@@ -262,14 +318,14 @@ for i, row in enumerate(records):
     if status != "Test ngay":
         if gio_dang != current_time:
             continue
-        if status not in ("Chua lam", "Chưa làm"):
+        if status not in ("Chua lam",):
             continue
 
-    tieu_de = str(row.get("TIÊU ĐỀ BÀI", "") or row.get("Tieu de", "") or row.get("TIEU DE", "")).strip()
+    tieu_de = str(row.get("TIEU DE BAI", "") or row.get("Tieu de", "") or row.get("TIEU DE", "")).strip()
     if not tieu_de:
         for key in headers:
             kl = key.lower()
-            if ("tieu" in kl or "tiêu" in kl or "tiều" in kl) and ("de" in kl or "đề" in kl):
+            if "tieu" in kl and "de" in kl:
                 val = str(row.get(key, "")).strip()
                 if val:
                     tieu_de = val
@@ -306,7 +362,6 @@ for i, row in enumerate(records):
     layout = slides[0].get("layout", "?")
     print("[INFO] Layout: " + layout)
 
-    # Auto-fill photo_path cho SP layouts
     config = inject_photo_path(config, tieu_de, caption)
 
     with tempfile.TemporaryDirectory() as tmp:
