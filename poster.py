@@ -17,7 +17,7 @@ now          = datetime.now(vn_tz)
 current_time = now.strftime("%H:%M")
 print(f"[INFO] Gio Viet Nam hien tai: {current_time}")
 
-# ── Google Auth ───────────────────────────────────────────────────────────────
+# ââ Google Auth âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 SCOPES = [
     "https://spreadsheets.google.com/feeds",
@@ -35,13 +35,13 @@ sheet       = spreadsheet.worksheet("Post")
 # Google Drive
 drive = build("drive", "v3", credentials=creds)
 
-# ── Load folder map tu tab FOLDERS ────────────────────────────────────────────
+# ââ Load folder map tu tab FOLDERS ââââââââââââââââââââââââââââââââââââââââââââ
 
 def load_folder_map():
     try:
         folders_sheet = spreadsheet.worksheet("FOLDERS")
         records = folders_sheet.get_all_records()
-        return {str(r.get("TEN", "") or r.get("TÊN", "")).strip().lower(): str(r.get("FOLDER_ID", "")).strip()
+        return {str(r.get("TEN", "") or r.get("TÃN", "")).strip().lower(): str(r.get("FOLDER_ID", "")).strip()
                 for r in records if r.get("FOLDER_ID")}
     except Exception as e:
         print("[WARN] Khong doc duoc tab FOLDERS: " + str(e))
@@ -50,7 +50,7 @@ def load_folder_map():
 FOLDER_MAP = load_folder_map()
 print("[INFO] Folder map: " + str(FOLDER_MAP))
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 def get_direct_url(url):
     """Convert Google Drive share link -> direct download URL."""
@@ -199,7 +199,7 @@ def post_to_facebook(caption, row):
         )
         return res.json().get("id")
 
-    # 1 hoặc nhiều ảnh: dùng /feed + attached_media (multipart)
+    # 1 hoáº·c nhiá»u áº£nh: dÃ¹ng /feed + attached_media (multipart)
     fields = [
         ("message",      (None, caption)),
         ("access_token", (None, FB_TOKEN)),
@@ -238,23 +238,28 @@ def add_comment(post_id, text, image_value):
     print("[INFO] Comment: " + str(res.json()))
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ââ Main ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 records = sheet.get_all_records(head=3)
 print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
 for i, row in enumerate(records):
-    gio_dang = str(row.get("GIO DANG", "") or row.get("GIỜ ĐĂNG", "")).strip()
+    gio_dang = str(row.get("GIO DANG", "") or row.get("GIá» ÄÄNG", "")).strip()
+    ngay_dang = ""
+    for _k, _v in row.items():
+        _kn = _k.encode('ascii','ignore').decode('ascii').upper().replace(' ','')
+        if 'NGAY' in _kn and 'DANG' in _kn and 'GIO' not in _kn and 'STATUS' not in _kn:
+            ngay_dang = str(_v).strip(); break
     status   = str(row.get("STATUS", "")).strip()
 
     # Cho phep "Test ngay" de bypass kiem tra gio
     if status == "Test ngay":
         pass
-    elif gio_dang != current_time or status != "Chua lam" and status != "Chưa làm":
+    elif ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour or status != "Chua lam" and status != "ChÆ°a lÃ m":
         continue
 
     row_num = i + 4
-    caption = str(row.get("CAPTION DAY DU", "") or row.get("CAPTION ĐẦY ĐỦ", "")).strip()
+    caption = str(row.get("CAPTION DAY DU", "") or row.get("CAPTION Äáº¦Y Äá»¦", "")).strip()
     print("\n[INFO] Xu ly dong " + str(row_num) + ": " + caption[:60] + "...")
 
     post_id = post_to_facebook(caption, row)
@@ -268,7 +273,7 @@ for i, row in enumerate(records):
 
         # Cap nhat Sheet
         headers = list(row.keys())
-        sheet.update_cell(row_num, headers.index("STATUS") + 1, "Đã đăng")
+        sheet.update_cell(row_num, headers.index("STATUS") + 1, "ÄÃ£ ÄÄng")
         sheet.update_cell(row_num, headers.index("FACEBOOK_POST_ID") + 1, post_id)
         sheet.update_cell(row_num, headers.index("POSTED_AT") + 1,
                           now.strftime("%Y-%m-%d %H:%M"))
