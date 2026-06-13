@@ -43,7 +43,7 @@ def load_folder_map():
         folders_sheet = spreadsheet.worksheet("FOLDERS")
         records = folders_sheet.get_all_records()
         result = {
-            str(r.get("TÊN", "") or r.get("TEN", "") or r.get("Ten", "")).strip().lower():
+            str(r.get("TÃN", "") or r.get("TEN", "") or r.get("Ten", "")).strip().lower():
             str(r.get("FOLDER_ID", "")).strip()
             for r in records if r.get("FOLDER_ID")
         }
@@ -266,12 +266,12 @@ BANNER_PROMPT = """Ban la creative director AKANO -- kho si gia dung nhap khau B
 Sinh JSON config cho banner VNPAY-style dua tren tieu de va caption.
 
 Chon photo_source phu hop:
-- "container" neu bai lien quan den: nhap khau, logistics, container, hang tu TQ, taubiển
+- "container" neu bai lien quan den: nhap khau, logistics, container, hang tu TQ, taubiá»n
 - "vanphong" neu bai lien quan den: doi ngu, nhan vien, thuong hieu, cong ty
 - "kho" cho tat ca cac truong hop con lai (kho hang, nguon hang, gia si, SKU...)
 
 Tra ve JSON:
-{"topic":"slug-kebab","photo_source":"kho","headline":"Tieu De Dong 1\\nTieu De Dong 2","sub":"Diem 1 · Diem 2 · Diem 3","badges":["Badge 1","Badge 2","Badge 3","Badge 4"]}
+{"topic":"slug-kebab","photo_source":"kho","headline":"Tieu De Dong 1\\nTieu De Dong 2","sub":"Diem 1 Â· Diem 2 Â· Diem 3","badges":["Badge 1","Badge 2","Badge 3","Badge 4"]}
 
 Quy tac:
 - headline: 2 dong, Title Case, dong 1 trang dong 2 vang
@@ -326,10 +326,10 @@ def build_banner_image_prompt(cfg):
                 "vanphong":  "a modern office interior with Akano branding"
                 }.get(cfg.get("photo_source", "kho"), "a warehouse with stacked goods")
 
-    return f"""Create a Vietnamese B2B wholesale promotional banner — VNPAY fintech visual style.
+    return f"""Create a Vietnamese B2B wholesale promotional banner â VNPAY fintech visual style.
 CANVAS: 1024x1536px (2:3 portrait)
 
-BACKGROUND: Deep blue gradient #0A3FCC top → #1565C0 bottom. Add 3-5 diagonal speed lines (cyan/white, ~20% opacity). NO texture.
+BACKGROUND: Deep blue gradient #0A3FCC top â #1565C0 bottom. Add 3-5 diagonal speed lines (cyan/white, ~20% opacity). NO texture.
 
 HERO PHOTO: Use uploaded photo as FULL-BLEED fill, lower 55-65% of canvas, edge-to-edge. Subject: {src_desc}.
 - ZERO rounded corners, ZERO card frame around photo
@@ -341,25 +341,25 @@ HEADLINE (top area y=8%-24%):
 - Line 2 ExtraBold GOLD #FFD700: "{line2}"
 - Subtext light gray below: "{sub}"
 
-BADGES: 4 rotated pill badges (±15°, alternating) scattered y=28%-68%. White or navy #1A2D5A background.
+BADGES: 4 rotated pill badges (Â±15Â°, alternating) scattered y=28%-68%. White or navy #1A2D5A background.
 {chr(10).join(f'- "{b}"' for b in badges[:4])}
 
 COLORS: Blue #0A3FCC, Red #E53935, Gold #FFD700, White. High saturation.
 NO logo. NO bottom bar. No people.
 
-VIETNAMESE: Copy EXACTLY — every diacritic mandatory.
-"{line1}" · "{line2}" · "{sub}" · {" · ".join(f'"{b}"' for b in badges)}
-Hỏi tone (ả ẳ ổ ử ở ẩ) must be preserved exactly."""
+VIETNAMESE: Copy EXACTLY â every diacritic mandatory.
+"{line1}" Â· "{line2}" Â· "{sub}" Â· {" Â· ".join(f'"{b}"' for b in badges)}
+Há»i tone (áº£ áº³ á» á»­ á» áº©) must be preserved exactly."""
 
 
 REPO_ROOT_BANNER  = Path(__file__).parent
-_frame_name       = "Frame dọc (Bài đăng Facebook).png"
+_frame_name       = "Frame dá»c (BÃ i ÄÄng Facebook).png"
 FRAME_PATH_BANNER = REPO_ROOT_BANNER / "assets" / _frame_name
 FONTS_DIR_BANNER  = REPO_ROOT_BANNER / "assets" / "fonts"
 
 
 def apply_frame_banner(raw_path):
-    """Composite Akano frame lên banner, trả về path post_final.png."""
+    """Composite Akano frame lÃªn banner, tráº£ vá» path post_final.png."""
     if not FRAME_PATH_BANNER.exists():
         print("[WARN] Frame khong tim thay, bo qua")
         return raw_path
@@ -380,19 +380,19 @@ def apply_frame_banner(raw_path):
 
 
 def generate_banner(tieu_de, caption, tmp_dir):
-    """Full banner flow: GPT config → Drive photo → gpt-image-1 → frame → PNG path."""
-    # Bước 1: GPT sinh config
+    """Full banner flow: GPT config â Drive photo â gpt-image-1 â frame â PNG path."""
+    # BÆ°á»c 1: GPT sinh config
     cfg = call_gpt_banner_config(tieu_de, caption)
     if not cfg:
         print("[ERROR] Khong sinh duoc banner config")
         return None
     print("[banner] config: " + str(cfg))
 
-    # Bước 2: Lấy ảnh từ Drive
+    # BÆ°á»c 2: Láº¥y áº£nh tá»« Drive
     photo_source = cfg.get("photo_source", "kho")
     photo_tmp = random_image_from_drive(photo_source)
     if not photo_tmp:
-        # fallback sang folder khác
+        # fallback sang folder khÃ¡c
         for fallback in ["kho", "container", "vanphong"]:
             photo_tmp = random_image_from_drive(fallback)
             if photo_tmp:
@@ -401,10 +401,10 @@ def generate_banner(tieu_de, caption, tmp_dir):
         print("[ERROR] Khong lay duoc anh tu Drive cho banner")
         return None
 
-    # Bước 3: Build image prompt
+    # BÆ°á»c 3: Build image prompt
     prompt = build_banner_image_prompt(cfg)
 
-    # Bước 4: Gọi gpt-image-1
+    # BÆ°á»c 4: Gá»i gpt-image-1
     import openai
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
     image_data = None
@@ -432,7 +432,7 @@ def generate_banner(tieu_de, caption, tmp_dir):
             print("[ERROR] gpt-image-1 that bai: " + str(e2))
             return None
 
-    # Bước 5: Lưu raw + apply frame
+    # BÆ°á»c 5: LÆ°u raw + apply frame
     raw_path = Path(tmp_dir) / "raw_gpt.png"
     raw_path.write_bytes(image_data)
     final_path = apply_frame_banner(raw_path)
@@ -475,7 +475,10 @@ def upload_to_facebook(png_path):
 # Main
 
 vn_tz        = timezone(timedelta(hours=7))
-current_time = datetime.now(vn_tz).strftime("%H:%M")
+_now         = datetime.now(vn_tz)
+current_time = _now.strftime("%H:%M")
+current_hour = _now.hour
+today_str    = _now.strftime("%d/%m/%Y")
 print("[INFO] Gio Viet Nam: " + current_time)
 
 records = sheet.get_all_records(head=3)
@@ -485,8 +488,13 @@ if records:
 
 for i, row in enumerate(records):
     status   = str(row.get("STATUS", "") or row.get("TRANG THAI", "")).strip()
-    loai_anh = str(row.get("FORMAT", "") or row.get("Status ảnh", "") or row.get("Status anh", "")).strip().lower()
-    gio_dang = str(row.get("GIỜ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
+    loai_anh = str(row.get("FORMAT", "") or row.get("Status áº£nh", "") or row.get("Status anh", "")).strip().lower()
+    gio_dang = str(row.get("GIá» ÄÄNG", "") or row.get("GIO DANG", "")).strip()
+    ngay_dang = ""
+    for _k, _v in row.items():
+        _kn = _k.encode('ascii','ignore').decode('ascii').upper().replace(' ','')
+        if 'NGAY' in _kn and 'DANG' in _kn and 'GIO' not in _kn and 'STATUS' not in _kn:
+            ngay_dang = str(_v).strip(); break
     row_num  = i + 4
     headers  = list(row.keys())
 
@@ -497,12 +505,12 @@ for i, row in enumerate(records):
         continue
 
     if status != "Test ngay":
-        if gio_dang != current_time:
+        if ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour:
             continue
         if status not in ("Chua lam",):
             continue
 
-    tieu_de = str(row.get("TIÊU ĐỀ BÀI", "") or row.get("TIEU DE BAI", "") or row.get("Tieu de", "") or row.get("TIEU DE", "")).strip()
+    tieu_de = str(row.get("TIÃU Äá» BÃI", "") or row.get("TIEU DE BAI", "") or row.get("Tieu de", "") or row.get("TIEU DE", "")).strip()
     if not tieu_de:
         for key in headers:
             kl = key.lower()
@@ -526,7 +534,7 @@ for i, row in enumerate(records):
         print("[WARN] Caption trong, bo qua")
         continue
 
-    # ── BANNER flow ──────────────────────────────────────────────────────
+    # ââ BANNER flow ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
     if loai_anh in ("banner", "infographic"):
         print("[INFO] Banner flow: gpt-image-1 + Drive photo...")
         with tempfile.TemporaryDirectory() as tmp:
@@ -541,7 +549,7 @@ for i, row in enumerate(records):
         print("[OK] Dong " + str(row_num) + " xong!")
         continue
 
-    # ── CAROUSEL / SINGLE flow ───────────────────────────────────────────
+    # ââ CAROUSEL / SINGLE flow âââââââââââââââââââââââââââââââââââââââââââ
     is_carousel   = (loai_anh == "carousel")
     system_prompt = CAROUSEL_PROMPT if is_carousel else SINGLE_PROMPT
 
