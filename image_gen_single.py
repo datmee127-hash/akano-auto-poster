@@ -1,10 +1,11 @@
 """
-image_gen_single.py - AKANO Single Post Generator
-Status anh = singer-post / single-post / single
-SP4/SP5 only, anh that tu Google Drive
+image_gen_single.py - AKANO Single Post Generator v2
+SP4/SP5 only, anh that tu Google Drive.
+Column detection dung unicodedata.normalize de xu ly Unicode Vietnamese.
 """
 
-import os, json, random, subprocess, tempfile, gspread, requests
+import os, json, random, subprocess, tempfile, unicodedata
+import gspread, requests
 from pathlib import Path
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -28,7 +29,23 @@ drive = build("drive", "v3", credentials=creds)
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
-# -- Drive photo helpers --
+
+def norm(s):
+    """Strip Vietnamese diacritics -> ASCII lowercase for safe substring matching."""
+    return unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode("ascii").lower()
+
+
+def col_val(row, *keywords):
+    """Return first non-empty value from row where ALL keywords appear in normalized key."""
+    for k, v in row.items():
+        nk = norm(k)
+        if all(kw in nk for kw in keywords):
+            val = str(v).strip()
+            if val: return val
+    return ""
+
+
+# ── Drive photo helpers ────────────────────────────────────────────────────────
 
 def load_folder_map():
     try:
@@ -37,9 +54,10 @@ def load_folder_map():
         for r in records:
             fid = str(r.get("FOLDER_ID", "")).strip()
             if not fid: continue
-            for k in r:
-                if "ten" in k.lower() or "name" in k.lower():
-                    name = str(r[k]).strip().lower()
+            for k, v in r.items():
+                nk = norm(k)
+                if "ten" in nk or "name" in nk:
+                    name = norm(v)
                     if name: result[name] = fid; break
         print("[INFO] FOLDER_MAP: " + str(result))
         return result
@@ -47,24 +65,32 @@ def load_folder_map():
         print("[WARN] Khong doc FOLDERS: " + str(e))
         return {}
 
+
 FOLDER_MAP = load_folder_map()
+
 FOLDER_ALIASES = {
-    "kho":       ["kho", "kho akn", "kho akano", "kho hang"],
-    "container": ["container", "cotainer", "cont"],
+    "kho":       ["kho", "kho akn", "kho anh", "kho akano", "kho hang"],
+    "container": ["container", "cotainer", "cont", "container akn"],
     "vanphong":  ["van phong", "vanphong", "vp"],
 }
+
 PHOTO_KEYWORDS = {
     "container": "container", "logistics": "container", "nhap khau": "container",
     "nhan vien": "vanphong",  "doi ngu":   "vanphong",  "van phong": "vanphong",
 }
 
+
 def find_folder_id(folder_key):
+    fk = norm(folder_key)
     for alias in FOLDER_ALIASES.get(folder_key, [folder_key]):
-        if alias in FOLDER_MAP: return FOLDER_MAP[alias]
+        na = norm(alias)
+        if na in FOLDER_MAP: return FOLDER_MAP[na]
     for map_key, fid in FOLDER_MAP.items():
         for alias in FOLDER_ALIASES.get(folder_key, [folder_key]):
-            if alias in map_key or map_key in alias: return fid
+            na = norm(alias)
+            if na in map_key or map_key in na: return fid
     return None
+
 
 def random_image_from_drive(folder_key):
     folder_id = find_folder_id(folder_key)
@@ -76,26 +102,27 @@ def random_image_from_drive(folder_key):
             fields="files(id, name)", pageSize=100,
         ).execute()
         files = result.get("files", [])
-        if not files: return None
+        if not files: print("[WARN] Folder " + folder_key + " trong"); return None
         chosen = random.choice(files)
-        print("[INFO] Drive pick: " + chosen["name"])
+        print("[INFO] Drive pick: " + chosen["name"] + " (folder=" + folder_key + ")")
         file_bytes = drive.files().get_media(fileId=chosen["id"]).execute()
         ext = chosen["name"].rsplit(".", 1)[-1] if "." in chosen["name"] else "jpg"
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix="."+ext, dir="/tmp")
-        tmp.write(file_bytes); tmp.close()
-        return tmp.name
+        tmp.write(file_bytes); tmp.close(); return tmp.name
     except Exception as e:
-        print("[WARN] Loi Drive: " + str(e)); return None
+        print("[WARN] Loi Drive " + folder_key + ": " + str(e)); return None
+
 
 def pick_photo(tieu_de, caption, layout):
-    text = (tieu_de + " " + caption[:200]).lower()
+    text = norm(tieu_de + " " + caption[:200])
     folder_key = "vanphong" if layout == "SP5" else "kho"
     for kw, pool in PHOTO_KEYWORDS.items():
-        if kw in text: folder_key = pool; break
+        if norm(kw) in text: folder_key = pool; break
     for key in [folder_key, "kho", "container", "vanphong"]:
         path = random_image_from_drive(key)
         if path: return path
     return None
+
 
 def inject_photo_path(config, tieu_de, caption):
     for slide in config.get("slides", []):
@@ -104,46 +131,42 @@ def inject_photo_path(config, tieu_de, caption):
             content = slide.get("content", {})
             if not content.get("photo_path"):
                 photo = pick_photo(tieu_de, caption, layout)
-                if photo:
-                    content["photo_path"] = photo; slide["content"] = content
-                    print("[INFO] inject photo: " + photo)
-                else:
-                    print("[WARN] Khong lay duoc anh cho " + layout)
+                if photo: content["photo_path"] = photo; slide["content"] = content; print("[INFO] inject: " + photo)
+                else: print("[WARN] Khong lay duoc anh cho " + layout)
 
-# -- GPT --
+
+# ── GPT ──────────────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """Ban la creative director AKANO -- kho si gia dung B2B.
-Chon layout va sinh JSON config 1 slide don tu tieu de + caption.
 
 Chi co 2 layout (LUON dung anh that tu Google Drive):
-SP4 Photo Card (MAC DINH) -> dung cho tat ca: milestone, so lieu, nguon hang, kho, container, hang hoa, kinh doanh.
-SP5 VNPAY Hero -> chi khi bai ve nhan su / doi ngu / nhan vien.
+SP4 Photo Card (MAC DINH) -> dung cho tat ca bai: milestone, so lieu, nguon hang, kho, container, hang hoa, kinh doanh.
+SP5 VNPAY Hero -> chi khi bai ve nhan su / doi ngu / nhan vien cu the.
 
-JSON SP4: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"SP4","content":{"photo_path":"","label":"<LABEL CAPS>","headline":"<2 dong Title Case, dung \\n>","stats":[{"value":"<so>","label":"<LABEL>"},{"value":"<so>","label":"<LABEL>"},{"value":"<so>","label":"<LABEL>"}],"cta":"Inbox nhan bang gia si","photo_v_anchor":0.5,"photo_full":false}}]}
+SP4 JSON: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"SP4","content":{"photo_path":"","label":"<LABEL 2-4 TU CAPS>","headline":"<2 dong Title Case, dung \\n>","stats":[{"value":"<so>","label":"<LABEL>"},{"value":"<so>","label":"<LABEL>"},{"value":"<so>","label":"<LABEL>"}],"cta":"Inbox nhan bang gia si","photo_v_anchor":0.5,"photo_full":false}}]}
 
-JSON SP5: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"SP5","content":{"photo_path":"","scale_boost":0.85,"person_up":0,"label":"<LABEL CAPS>","headline":"<2-3 dong Title Case, dung \\n>","sub":"<3-5 tu>","features":["<f1>","<f2>","<f3>"],"cta":"Inbox nhan bang gia si"}}]}
+SP5 JSON: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"SP5","content":{"photo_path":"","scale_boost":0.85,"person_up":0,"label":"<LABEL CAPS>","headline":"<2-3 dong Title Case, dung \\n>","sub":"<3-5 tu>","features":["<f1>","<f2>","<f3>"],"cta":"Inbox nhan bang gia si"}}]}
 
 Quy tac: chi JSON thuan, slug kebab no dau, giu nguyen caption, photo_path de rong.""".strip()
 
+
 def generate_config(tieu_de, caption):
     res = requests.post("https://api.openai.com/v1/chat/completions",
-        headers={"Authorization": "Bearer " + OPENAI_API_KEY, "Content-Type": "application/json"},
+        headers={"Authorization": "Bearer "+OPENAI_API_KEY, "Content-Type": "application/json"},
         json={"model": "gpt-4o-mini", "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": "Tieu de: " + tieu_de + "\n\nCaption:\n" + caption}
+            {"role": "user",   "content": "Tieu de: "+tieu_de+"\n\nCaption:\n"+caption}
         ], "max_tokens": 900, "temperature": 0.7}, timeout=60)
     data = res.json()
-    if "choices" not in data:
-        print("[ERROR] GPT: " + str(data)); return None
+    if "choices" not in data: print("[ERROR] GPT: "+str(data)); return None
     raw = data["choices"][0]["message"]["content"].strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"): raw = raw[4:]
         raw = raw.strip()
-    try:
-        return json.loads(raw)
-    except Exception as e:
-        print("[ERROR] JSON: " + str(e)); return None
+    try: return json.loads(raw)
+    except Exception as e: print("[ERROR] JSON: "+str(e)); return None
+
 
 def render_slide(config, tmp_dir):
     config["output_dir"] = str(tmp_dir / "slides")
@@ -151,79 +174,74 @@ def render_slide(config, tmp_dir):
     with open(cfg, "w", encoding="utf-8") as f: json.dump(config, f, ensure_ascii=False, indent=2)
     r = subprocess.run(["python", str(COMPOSE_SCRIPT), "--carousel", str(cfg)], capture_output=True, text=True)
     print(r.stdout)
-    if r.returncode != 0:
-        print("[ERROR] compose_slide:\n" + r.stderr); return None
-    pngs = sorted((tmp_dir / "slides").glob("slide_*.png"))
+    if r.returncode != 0: print("[ERROR] compose_slide:\n"+r.stderr); return None
+    pngs = sorted((tmp_dir/"slides").glob("slide_*.png"))
     return pngs[0] if pngs else None
+
 
 def upload_to_facebook(png_path):
     with open(png_path, "rb") as f:
-        r = requests.post("https://graph.facebook.com/v22.0/" + PAGE_ID + "/photos",
+        r = requests.post("https://graph.facebook.com/v22.0/"+PAGE_ID+"/photos",
             data={"published": "false", "access_token": FB_TOKEN},
             files={"source": ("image.png", f, "image/png")}, timeout=60)
     result = r.json()
     pid = result.get("id")
-    if pid:
-        print("[OK] FB: " + str(pid)); return "fb:" + str(pid)
-    print("[ERROR] FB: " + str(result)); return None
+    if pid: print("[OK] FB: "+str(pid)); return "fb:"+str(pid)
+    print("[ERROR] FB: "+str(result)); return None
 
-# -- Main --
+
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 records = sheet.get_all_records(head=3)
-print("[INFO] " + str(len(records)) + " dong")
+print("[INFO] "+str(len(records))+" dong")
 vn_tz = timezone(timedelta(hours=7))
 current_time = datetime.now(vn_tz).strftime("%H:%M")
-print("[INFO] Gio VN: " + current_time)
+print("[INFO] Gio VN: "+current_time)
 
 VALID_FORMATS = ("single", "singer-post", "single-post")
+
 for i, row in enumerate(records):
-    headers = list(row.keys())
-    # Doc Status anh (dung loop de tranh van de Unicode)
+    # Doc "Status anh" column - dung norm() de strip dau
     loai_anh = ""
-    for k in headers:
-        if "status" in k.lower() and "anh" in k.lower():
-            loai_anh = str(row.get(k, "")).strip().lower(); break
+    for k, v in row.items():
+        nk = norm(k)
+        if "status" in nk and "anh" in nk:
+            loai_anh = norm(v); break
     if loai_anh not in VALID_FORMATS: continue
 
-    status = str(row.get("STATUS", "")).strip()
+    # STATUS column
+    status_raw = ""
+    for k, v in row.items():
+        if norm(k) == "status" and "anh" not in norm(k):
+            status_raw = str(v).strip(); break
+    if not status_raw:
+        status_raw = str(row.get("STATUS", "")).strip()
+    status_norm = norm(status_raw)
 
-    # Doc gio dang
+    # GIO DANG
     gio_dang = ""
-    for k in headers:
-        kl = k.lower()
-        if ("gio" in kl or "gi" in kl) and ("dang" in kl):
-            gio_dang = str(row.get(k, "")).strip(); break
+    for k, v in row.items():
+        nk = norm(k)
+        if "gio" in nk and "dang" in nk:
+            gio_dang = str(v).strip(); break
 
     # Skip da dang
-    if any(x in status for x in ["dang", "posted"]): continue
+    if "da dang" in status_norm or "posted" in status_norm: continue
 
-    if status != "Test ngay":
+    if status_norm != "test ngay":
         if gio_dang != current_time: continue
-        if not any(x in status.lower() for x in ["chua", "pending", "todo"]): continue
+        if "chua" not in status_norm and "pending" not in status_norm and "todo" not in status_norm: continue
 
     row_num = i + 4
-
-    # Doc tieu de
-    tieu_de = ""
-    for k in headers:
-        if "tieu" in k.lower() and ("de" in k.lower() or "đ" in k.lower()):
-            v = str(row.get(k, "")).strip()
-            if v: tieu_de = v; break
-
-    # Doc caption
-    caption = ""
-    for k in headers:
-        if "caption" in k.lower():
-            v = str(row.get(k, "")).strip()
-            if v and len(v) > len(caption): caption = v
+    tieu_de = col_val(row, "tieu", "de")
+    caption = col_val(row, "caption")
+    headers = list(row.keys())
 
     print("\n[SINGLE] Dong " + str(row_num) + ": " + tieu_de[:60])
-    if not caption:
-        print("[WARN] Caption trong"); continue
+    if not caption: print("[WARN] Caption trong"); continue
 
     config = generate_config(tieu_de or caption[:80], caption)
-    if not config:
-        print("[ERROR] Sinh config that bai"); continue
+    if not config: print("[ERROR] Config that bai"); continue
 
     layout = config.get("slides", [{}])[0].get("layout", "?")
     print("[INFO] Layout: " + layout)
@@ -232,12 +250,15 @@ for i, row in enumerate(records):
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
         png = render_slide(config, tmp_dir)
-        if not png:
-            print("[ERROR] Render that bai"); continue
+        if not png: print("[ERROR] Render that bai"); continue
         fb_id = upload_to_facebook(png)
-        if fb_id and "IMAGE_PATH_1" in headers:
-            sheet.update_cell(row_num, headers.index("IMAGE_PATH_1") + 1, fb_id)
-            print("[OK] IMAGE_PATH_1 = " + fb_id)
+        if fb_id:
+            # Cap nhat IMAGE_PATH_1
+            for j, k in enumerate(headers):
+                if norm(k) == "image_path_1" or (norm(k).startswith("image") and "path" in norm(k) and "1" in k):
+                    sheet.update_cell(row_num, j+1, fb_id)
+                    print("[OK] IMAGE_PATH_1 = " + fb_id); break
+
     print("[OK] Dong " + str(row_num) + " xong! Layout: " + layout)
 
-print("\n[INFO] image_gen_single.py hoan tat.")
+print("\n[INFO] image_gen_single.py v2 hoan tat.")
