@@ -1,4 +1,4 @@
-"""image_gen_single.py v3 - debug column detection"""
+"""image_gen_single.py v4 - doc dung col Status anh, khong doc FORMAT"""
 import os, json, random, subprocess, tempfile, unicodedata
 import gspread, requests
 from pathlib import Path
@@ -135,52 +135,36 @@ def upload_to_facebook(png_path):
 
 # ---- Main ----
 records = sheet.get_all_records(head=3)
-print("[INFO] "+str(len(records))+" dong")
-
-# DEBUG: show column names from first row
-if records:
-    headers0 = list(records[0].keys())
-    print("[DEBUG] Columns (first 20): " + str(headers0[:20]))
-    # Show normalized column names to find status/anh col
-    for k in headers0:
-        nk = norm(k)
-        if "status" in nk or "anh" in nk or "format" in nk or "loai" in nk:
-            print("[DEBUG] col: " + repr(k) + " -> norm: " + repr(nk))
-
+print("[INFO] " + str(len(records)) + " dong")
 vn_tz = timezone(timedelta(hours=7))
 current_time = datetime.now(vn_tz).strftime("%H:%M")
 print("[INFO] Gio VN: " + current_time)
 
+# "Status anh" column - KHONG doc FORMAT, chi doc col co "status" + "anh"
+# DEBUG: show what Status anh column contains
+if records:
+    status_anh_vals = {}
+    for row in records:
+        for k, v in row.items():
+            nk = norm(k)
+            if "status" in nk and "anh" in nk:
+                val = norm(str(v)).strip()
+                if val: status_anh_vals[val] = status_anh_vals.get(val, 0) + 1
+                break
+    print("[DEBUG] Status anh values: " + str(status_anh_vals))
+
 VALID_FORMATS = ("single", "singer-post", "single-post", "single post", "singerpost")
 
-# DEBUG: count how many rows have each loai_anh value
-format_counts = {}
-for row in records:
-    loai_anh = ""
-    for k, v in row.items():
-        nk = norm(k)
-        if ("status" in nk and "anh" in nk) or ("loai" in nk and "anh" in nk) or norm(k) == "format":
-            val = norm(str(v))
-            if val: loai_anh = val; break
-    if loai_anh:
-        format_counts[loai_anh] = format_counts.get(loai_anh, 0) + 1
-print("[DEBUG] Format counts: " + str(format_counts))
-
 for i, row in enumerate(records):
+    # Chi doc "Status anh" - KHONG doc FORMAT
     loai_anh = ""
     for k, v in row.items():
         nk = norm(k)
-        if ("status" in nk and "anh" in nk) or ("loai" in nk and "anh" in nk) or norm(k) == "format":
-            val = norm(str(v))
-            if val: loai_anh = val; break
+        if "status" in nk and "anh" in nk:  # matches "Status anh" only
+            loai_anh = norm(str(v)).strip(); break
     if loai_anh not in VALID_FORMATS: continue
 
     status_raw = str(row.get("STATUS", "")).strip()
-    if not status_raw:
-        for k, v in row.items():
-            nk = norm(k)
-            if nk == "status" or (nk.startswith("status") and "anh" not in nk):
-                status_raw = str(v).strip(); break
     status_norm = norm(status_raw)
 
     gio_dang = ""
@@ -223,4 +207,4 @@ for i, row in enumerate(records):
 
     print("[OK] Dong " + str(row_num) + " xong! Layout: " + layout)
 
-print("\n[INFO] image_gen_single.py v3 hoan tat.")
+print("\n[INFO] image_gen_single.py v4 hoan tat.")
