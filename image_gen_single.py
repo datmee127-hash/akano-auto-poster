@@ -49,7 +49,7 @@ def load_folder_map():
 
 FOLDER_MAP = load_folder_map()
 FOLDER_ALIASES = {"kho":["kho","kho akn","kho anh","kho akano","kho hang"],"container":["container","cotainer","cont","container akn"],"vanphong":["van phong","vanphong","vp"]}
-PHOTO_KEYWORDS = {"container":"container","logistics":"container","nhap khau":"container","nhan vien":"vanphong","doi ngu":"vanphong","van phong":"vanphong"}
+PHOTO_KEYWORDS = {"container":"container","cotainer":"container","logistics":"container","nhap khau":"container","hang nhap":"container","xuat hang":"container","van chuyen":"container","lo hang":"container","chuyen hang":"container","giao hang":"container","ngoai nhap":"container","nhan vien":"vanphong","doi ngu":"vanphong","van phong":"vanphong","nhan su":"vanphong","tuyen dung":"vanphong","founder":"vanphong","gia dinh akano":"vanphong","con nguoi":"vanphong","team":"vanphong","bo phan":"vanphong","kho hang":"kho","kho si":"kho","nguon hang":"kho","sku":"kho","san pham":"kho","gia dung":"kho","chinh nganh":"kho","ton kho":"kho","phan phoi":"kho","nhap hang":"kho"}
 
 def find_folder_id(folder_key):
     for alias in FOLDER_ALIASES.get(folder_key, [folder_key]):
