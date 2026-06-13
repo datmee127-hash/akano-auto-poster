@@ -137,7 +137,10 @@ def upload_to_facebook(png_path):
 records = sheet.get_all_records(head=3)
 print("[INFO] " + str(len(records)) + " dong")
 vn_tz = timezone(timedelta(hours=7))
-current_time = datetime.now(vn_tz).strftime("%H:%M")
+_now         = datetime.now(vn_tz)
+current_time = _now.strftime("%H:%M")
+current_hour = _now.hour
+today_str    = _now.strftime("%d/%m/%Y")
 print("[INFO] Gio VN: " + current_time)
 
 # "Status anh" column - KHONG doc FORMAT, chi doc col co "status" + "anh"
@@ -172,11 +175,16 @@ for i, row in enumerate(records):
         nk = norm(k)
         if "gio" in nk and "dang" in nk:
             gio_dang = str(v).strip(); break
+    ngay_dang = ""
+    for k, v in row.items():
+        nk = norm(k)
+        if "ngay" in nk and "dang" in nk and "gio" not in nk and "status" not in nk:
+            ngay_dang = str(v).strip(); break
 
     if "da dang" in status_norm or "posted" in status_norm: continue
 
     if status_norm != "test ngay":
-        if gio_dang != current_time: continue
+        if ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour: continue
         if "chua" not in status_norm and "pending" not in status_norm and "todo" not in status_norm: continue
 
     row_num = i + 4
