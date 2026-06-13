@@ -184,8 +184,9 @@ for i, row in enumerate(records):
     if "da dang" in status_norm or "posted" in status_norm: continue
 
     if status_norm != "test ngay":
-        if ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour: continue
-        if "chua" not in status_norm and "pending" not in status_norm and "todo" not in status_norm: continue
+        if not ("test" in status_norm and "ngay" in status_norm):
+            if ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour: continue
+            if "chua" not in status_norm and "pending" not in status_norm and "todo" not in status_norm: continue
 
     row_num = i + 4
     tieu_de = col_val(row, "tieu", "de")
