@@ -34,7 +34,7 @@ sheet       = spreadsheet.worksheet("Post")
 REPO_ROOT      = Path(__file__).parent
 COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 
-# ── Prompts ───────────────────────────────────────────────────────────────────
+# ââ Prompts âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 CAROUSEL_PROMPT = """
 Ban la creative director cho thuong hieu AKANO -- kho si gia dung nhap khau B2B.
@@ -83,8 +83,8 @@ JSON schema bat buoc:
       "content": {
         "headline": "<CTA headline 2-3 dong>",
         "subtext": "<cau ket 1-2 dong>",
-        "cta": "Inbox để nhận tư vấn nguồn hàng",
-        "footer": "AKANO - NGUỒN HÀNG KINH DOANH - akano.vn - 0988.198.158"
+        "cta": "Inbox Äá» nháº­n tÆ° váº¥n nguá»n hÃ ng",
+        "footer": "AKANO - NGUá»N HÃNG KINH DOANH - akano.vn - 0988.198.158"
       }
     }
   ]
@@ -115,13 +115,13 @@ S4 Tip Card      -> khi la meo, checklist, huong dan thuc chien (co bullet point
 
 OUTPUT JSON SCHEMA (chi 1 slide):
 
-S1: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S1","content":{"quote":"<insight 2-8 tu x 1-3 dong, dung \\n>","attribution":"— AKANO · Nguồn hàng kinh doanh"}}]}
+S1: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S1","content":{"quote":"<insight 2-8 tu x 1-3 dong, dung \\n>","attribution":"â AKANO Â· Nguá»n hÃ ng kinh doanh"}}]}
 
-S2: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S2","content":{"title":"<2-3 dong Title Case, dung \\n>","body":["<doan 1>","<doan 2>","<doan 3>"],"cta":"Inbox để chia sẻ thêm"}}]}
+S2: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S2","content":{"title":"<2-3 dong Title Case, dung \\n>","body":["<doan 1>","<doan 2>","<doan 3>"],"cta":"Inbox Äá» chia sáº» thÃªm"}}]}
 
 S3: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S3","content":{"label":"<LABEL CAPS>","big_number":"<max 8 ky tu>","caption":"<3-6 tu>","subtext":"<12-18 tu>"}}]}
 
-S4: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S4","content":{"label":"<LABEL CAPS>","headline":"<2 dong Title Case, dung \\n>","items":["<item 1>","<item 2>","<item 3>"],"cta":"Inbox để Akano tư vấn"}}]}
+S4: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S4","content":{"label":"<LABEL CAPS>","headline":"<2 dong Title Case, dung \\n>","items":["<item 1>","<item 2>","<item 3>"],"cta":"Inbox Äá» Akano tÆ° váº¥n"}}]}
 
 Quy tac chung:
 - Chi tra ve JSON thuan, khong giai thich
@@ -130,7 +130,7 @@ Quy tac chung:
 """.strip()
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ââ Helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 def generate_config(tieu_de, caption, system_prompt, max_tokens=1200):
     user_msg = "Tieu de bai: " + tieu_de + "\n\nCaption:\n" + caption
@@ -201,7 +201,7 @@ def upload_to_facebook(png_path):
     return None
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ââ Main ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 SINGLE_FORMATS   = ("single", "single-post", "singer-post")
 CAROUSEL_FORMATS = ("carousel",)
@@ -224,11 +224,14 @@ if records:
 print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
 vn_tz        = timezone(timedelta(hours=7))
-current_time = datetime.now(vn_tz).strftime("%H:%M")
+_now         = datetime.now(vn_tz)
+current_time = _now.strftime("%H:%M")
+current_hour = _now.hour
+today_str    = _now.strftime("%d/%m/%Y")
 print("[INFO] Gio Viet Nam: " + current_time)
 
 for i, row in enumerate(records):
-    loai_anh = str(row.get("Status ảnh", "") or row.get("Status anh", "") or row.get("STATUS ANH", "")).strip().lower()
+    loai_anh = str(row.get("Status áº£nh", "") or row.get("Status anh", "") or row.get("STATUS ANH", "")).strip().lower()
 
     is_carousel = loai_anh in CAROUSEL_FORMATS
     is_single   = loai_anh in SINGLE_FORMATS
@@ -236,25 +239,30 @@ for i, row in enumerate(records):
         continue
 
     status   = str(row.get("STATUS", "")).strip()
-    gio_dang = str(row.get("GIỜ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
+    gio_dang = str(row.get("GIá» ÄÄNG", "") or row.get("GIO DANG", "")).strip()
+    ngay_dang = ""
+    for _k, _v in row.items():
+        _kn = _k.encode('ascii','ignore').decode('ascii').upper().replace(' ','')
+        if 'NGAY' in _kn and 'DANG' in _kn and 'GIO' not in _kn and 'STATUS' not in _kn:
+            ngay_dang = str(_v).strip(); break
 
-    if status in ("Đã đăng", "Da dang"):
+    if status in ("ÄÃ£ ÄÄng", "Da dang"):
         continue
     if status == "Test ngay":
         pass
-    elif gio_dang != current_time or status not in ("Chua lam", "Chưa làm"):
+    elif ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour or status not in ("Chua lam", "ChÆ°a lÃ m"):
         continue
 
     row_num = i + 4
-    tieu_de = str(row.get("TIÊu ĐỀ BÀI", "") or row.get("TIEU DE BAI", "")).strip()
-    caption = str(row.get("CAPTION ĐẦY ĐỦ", "") or row.get("CAPTION DAY DU", "")).strip()
+    tieu_de = str(row.get("TIÃu Äá» BÃI", "") or row.get("TIEU DE BAI", "")).strip()
+    caption = str(row.get("CAPTION Äáº¦Y Äá»¦", "") or row.get("CAPTION DAY DU", "")).strip()
     headers = list(row.keys())
 
     if not caption:
         print("[WARN] Dong " + str(row_num) + ": Caption trong, bo qua")
         continue
 
-    # ── CAROUSEL ──────────────────────────────────────────────────────────────
+    # ââ CAROUSEL ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
     if is_carousel:
         print("\n[INFO] [CAROUSEL] Dong " + str(row_num) + ": " + tieu_de[:60])
         config = generate_config(tieu_de or caption[:80], caption, CAROUSEL_PROMPT, max_tokens=1200)
@@ -279,7 +287,7 @@ for i, row in enumerate(records):
 
         print("[OK] Dong " + str(row_num) + " carousel xong!")
 
-    # ── SINGLE ────────────────────────────────────────────────────────────────
+    # ââ SINGLE ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
     elif is_single:
         print("\n[INFO] [SINGLE] Dong " + str(row_num) + ": " + tieu_de[:60])
         config = generate_config(tieu_de or caption[:80], caption, SINGLE_PROMPT, max_tokens=800)
