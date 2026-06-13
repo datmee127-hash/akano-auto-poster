@@ -1,11 +1,7 @@
 """
 image_gen_single.py - AKANO Single Post Generator
-Chi xu ly: Status anh = singer-post / single-post / single
--> GPT chon layout SP4/SP5 (luon co anh that tu Google Drive)
--> inject_photo_path lay anh ngau nhien tu Drive
--> compose_slide.py render 1 PNG
--> Upload Facebook (unpublished)
--> Cap nhat IMAGE_PATH_1
+Status anh = singer-post / single-post / single
+SP4/SP5 only, anh that tu Google Drive
 """
 
 import os, json, random, subprocess, tempfile, gspread, requests
@@ -37,11 +33,14 @@ COMPOSE_SCRIPT = REPO_ROOT / "compose_slide.py"
 def load_folder_map():
     try:
         records = spreadsheet.worksheet("FOLDERS").get_all_records()
-        result = {
-            str(r.get("TEN", "") or r.get("TEN", "") or r.get("Ten", "")).strip().lower():
-            str(r.get("FOLDER_ID", "")).strip()
-            for r in records if r.get("FOLDER_ID")
-        }
+        result = {}
+        for r in records:
+            fid = str(r.get("FOLDER_ID", "")).strip()
+            if not fid: continue
+            for k in r:
+                if "ten" in k.lower() or "name" in k.lower():
+                    name = str(r[k]).strip().lower()
+                    if name: result[name] = fid; break
         print("[INFO] FOLDER_MAP: " + str(result))
         return result
     except Exception as e:
@@ -73,7 +72,7 @@ def random_image_from_drive(folder_key):
         print("[WARN] Khong tim thay Drive folder: " + folder_key); return None
     try:
         result = drive.files().list(
-            q="'" + folder_id + "' in parents and mimeType contains 'image/' and trashed=false",
+            q="'"+folder_id+"' in parents and mimeType contains 'image/' and trashed=false",
             fields="files(id, name)", pageSize=100,
         ).execute()
         files = result.get("files", [])
@@ -82,7 +81,7 @@ def random_image_from_drive(folder_key):
         print("[INFO] Drive pick: " + chosen["name"])
         file_bytes = drive.files().get_media(fileId=chosen["id"]).execute()
         ext = chosen["name"].rsplit(".", 1)[-1] if "." in chosen["name"] else "jpg"
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix="." + ext, dir="/tmp")
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix="."+ext, dir="/tmp")
         tmp.write(file_bytes); tmp.close()
         return tmp.name
     except Exception as e:
@@ -178,26 +177,58 @@ print("[INFO] Gio VN: " + current_time)
 
 VALID_FORMATS = ("single", "singer-post", "single-post")
 for i, row in enumerate(records):
-    loai_anh = str(row.get("Status anh", "") or row.get("Status anh", "") or row.get("STATUS ANH", "")).strip().lower()
-    if loai_anh not in VALID_FORMATS: continue
-    status = str(row.get("STATUS", "")).strip()
-    gio_dang = str(row.get("GIO DANG", "") or row.get("GIo DANG", "")).strip()
-    if status in ("Da dang", "Da dang"): continue
-    if status != "Test ngay":
-        if gio_dang != current_time or status not in ("Chua lam", "Chua lam"): continue
-    row_num = i + 4
-    tieu_de = str(row.get("TIEu DE BAI", "") or row.get("TIEU DE BAI", "")).strip()
-    caption = str(row.get("CAPTION DAY DU", "") or row.get("CAPTION DAY DU", "")).strip()
     headers = list(row.keys())
+    # Doc Status anh (dung loop de tranh van de Unicode)
+    loai_anh = ""
+    for k in headers:
+        if "status" in k.lower() and "anh" in k.lower():
+            loai_anh = str(row.get(k, "")).strip().lower(); break
+    if loai_anh not in VALID_FORMATS: continue
+
+    status = str(row.get("STATUS", "")).strip()
+
+    # Doc gio dang
+    gio_dang = ""
+    for k in headers:
+        kl = k.lower()
+        if ("gio" in kl or "gi" in kl) and ("dang" in kl):
+            gio_dang = str(row.get(k, "")).strip(); break
+
+    # Skip da dang
+    if any(x in status for x in ["dang", "posted"]): continue
+
+    if status != "Test ngay":
+        if gio_dang != current_time: continue
+        if not any(x in status.lower() for x in ["chua", "pending", "todo"]): continue
+
+    row_num = i + 4
+
+    # Doc tieu de
+    tieu_de = ""
+    for k in headers:
+        if "tieu" in k.lower() and ("de" in k.lower() or "đ" in k.lower()):
+            v = str(row.get(k, "")).strip()
+            if v: tieu_de = v; break
+
+    # Doc caption
+    caption = ""
+    for k in headers:
+        if "caption" in k.lower():
+            v = str(row.get(k, "")).strip()
+            if v and len(v) > len(caption): caption = v
+
     print("\n[SINGLE] Dong " + str(row_num) + ": " + tieu_de[:60])
     if not caption:
         print("[WARN] Caption trong"); continue
+
     config = generate_config(tieu_de or caption[:80], caption)
     if not config:
         print("[ERROR] Sinh config that bai"); continue
+
     layout = config.get("slides", [{}])[0].get("layout", "?")
     print("[INFO] Layout: " + layout)
     inject_photo_path(config, tieu_de, caption)
+
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
         png = render_slide(config, tmp_dir)
