@@ -243,6 +243,9 @@ def add_comment(post_id, text, image_value):
 records = sheet.get_all_records(head=3)
 print("[INFO] Doc duoc " + str(len(records)) + " dong tu Sheet")
 
+today_str    = now.strftime("%d/%m/%Y")
+current_hour = now.hour
+
 for i, row in enumerate(records):
     gio_dang = str(row.get("GIO DANG", "") or row.get("GIá» ÄÄNG", "")).strip()
     ngay_dang = ""
@@ -275,6 +278,8 @@ for i, row in enumerate(records):
         headers = list(row.keys())
         sheet.update_cell(row_num, headers.index("STATUS") + 1, "ÄÃ£ ÄÄng")
         sheet.update_cell(row_num, headers.index("FACEBOOK_POST_ID") + 1, post_id)
+        sheet.update_cell(row_num, headers.index("FACEBOOK_POST_URL") + 1,
+                          "https://www.facebook.com/" + post_id)
         sheet.update_cell(row_num, headers.index("POSTED_AT") + 1,
                           now.strftime("%Y-%m-%d %H:%M"))
         print("[OK] Dang thanh cong! Post ID: " + post_id)
