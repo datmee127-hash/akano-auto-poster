@@ -271,7 +271,7 @@ Chon photo_source phu hop:
 - "kho" cho tat ca cac truong hop con lai (kho hang, nguon hang, gia si, SKU...)
 
 Tra ve JSON:
-{"topic":"slug-kebab","photo_source":"kho","headline":"Tieu De Dong 1\\nTieu De Dong 2","sub":"Diem 1 Â· Diem 2 Â· Diem 3","badges":["Badge 1","Badge 2","Badge 3","Badge 4"]}
+{"topic":"slug-kebab","photo_source":"kho","headline":"Tieu De Dong 1\\nTieu De Dong 2","sub":"Diem 1 · Diem 2 · Diem 3","badges":["Badge 1","Badge 2","Badge 3","Badge 4"]}
 
 Quy tac:
 - headline: 2 dong, Title Case, dong 1 trang dong 2 vang
@@ -341,14 +341,14 @@ HEADLINE (top area y=8%-24%):
 - Line 2 ExtraBold GOLD #FFD700: "{line2}"
 - Subtext light gray below: "{sub}"
 
-BADGES: 4 rotated pill badges (Â±15Â°, alternating) scattered y=28%-68%. White or navy #1A2D5A background.
+BADGES: 4 rotated pill badges (±15°, alternating) scattered y=28%-68%. White or navy #1A2D5A background.
 {chr(10).join(f'- "{b}"' for b in badges[:4])}
 
 COLORS: Blue #0A3FCC, Red #E53935, Gold #FFD700, White. High saturation.
 NO logo. NO bottom bar. No people.
 
 VIETNAMESE: Copy EXACTLY â every diacritic mandatory.
-"{line1}" Â· "{line2}" Â· "{sub}" Â· {" Â· ".join(f'"{b}"' for b in badges)}
+"{line1}" · "{line2}" · "{sub}" · {" · ".join(f'"{b}"' for b in badges)}
 Há»i tone (áº£ áº³ á» á»­ á» áº©) must be preserved exactly."""
 
 
