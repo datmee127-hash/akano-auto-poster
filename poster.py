@@ -247,22 +247,18 @@ today_str    = now.strftime("%d/%m/%Y")
 current_hour = now.hour
 
 for i, row in enumerate(records):
-    gio_dang = str(row.get("GIO DANG", "") or row.get("GIá» ÄÄNG", "")).strip()
-    ngay_dang = ""
-    for _k, _v in row.items():
-        _kn = _k.encode('ascii','ignore').decode('ascii').upper().replace(' ','')
-        if 'NGAY' in _kn and 'DANG' in _kn and 'GIO' not in _kn and 'STATUS' not in _kn:
-            ngay_dang = str(_v).strip(); break
-    status   = str(row.get("STATUS", "")).strip()
+    gio_dang  = str(row.get("GIỜ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
+    ngay_dang = str(row.get("NGÀY ĐĂNG", "") or row.get("NGAY DANG", "")).strip()
+    status    = str(row.get("STATUS", "")).strip()
 
     # Cho phep "Test ngay" de bypass kiem tra gio
     if status == "Test ngay":
         pass
-    elif ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour or status != "Chua lam" and status != "ChÆ°a lÃ m":
+    elif ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour or status != "Chưa làm":
         continue
 
     row_num = i + 4
-    caption = str(row.get("CAPTION DAY DU", "") or row.get("CAPTION Äáº¦Y Äá»¦", "")).strip()
+    caption = str(row.get("CAPTION ĐẦY ĐỦ", "") or row.get("CAPTION DAY DU", "")).strip()
     print("\n[INFO] Xu ly dong " + str(row_num) + ": " + caption[:60] + "...")
 
     post_id = post_to_facebook(caption, row)

@@ -326,10 +326,10 @@ def build_banner_image_prompt(cfg):
                 "vanphong":  "a modern office interior with Akano branding"
                 }.get(cfg.get("photo_source", "kho"), "a warehouse with stacked goods")
 
-    return f"""Create a Vietnamese B2B wholesale promotional banner â VNPAY fintech visual style.
+    return f"""Create a Vietnamese B2B wholesale promotional banner — VNPAY fintech visual style.
 CANVAS: 1024x1536px (2:3 portrait)
 
-BACKGROUND: Deep blue gradient #0A3FCC top â #1565C0 bottom. Add 3-5 diagonal speed lines (cyan/white, ~20% opacity). NO texture.
+BACKGROUND: Deep blue gradient #0A3FCC top → #1565C0 bottom. Add 3-5 diagonal speed lines (cyan/white, ~20% opacity). NO texture.
 
 HERO PHOTO: Use uploaded photo as FULL-BLEED fill, lower 55-65% of canvas, edge-to-edge. Subject: {src_desc}.
 - ZERO rounded corners, ZERO card frame around photo
@@ -347,13 +347,13 @@ BADGES: 4 rotated pill badges (±15°, alternating) scattered y=28%-68%. White o
 COLORS: Blue #0A3FCC, Red #E53935, Gold #FFD700, White. High saturation.
 NO logo. NO bottom bar. No people.
 
-VIETNAMESE: Copy EXACTLY â every diacritic mandatory.
+VIETNAMESE: Copy EXACTLY — every diacritic mandatory.
 "{line1}" · "{line2}" · "{sub}" · {" · ".join(f'"{b}"' for b in badges)}
 Há»i tone (áº£ áº³ á» á»­ á» áº©) must be preserved exactly."""
 
 
 REPO_ROOT_BANNER  = Path(__file__).parent
-_frame_name       = "Frame dá»c (BÃ i ÄÄng Facebook).png"
+_frame_name       = "Frame dọc (Bài đăng Facebook).png"
 FRAME_PATH_BANNER = REPO_ROOT_BANNER / "assets" / _frame_name
 FONTS_DIR_BANNER  = REPO_ROOT_BANNER / "assets" / "fonts"
 
@@ -488,17 +488,13 @@ if records:
 
 for i, row in enumerate(records):
     status   = str(row.get("STATUS", "") or row.get("TRANG THAI", "")).strip()
-    loai_anh = str(row.get("FORMAT", "") or row.get("Status áº£nh", "") or row.get("Status anh", "")).strip().lower()
-    gio_dang = str(row.get("GIá» ÄÄNG", "") or row.get("GIO DANG", "")).strip()
-    ngay_dang = ""
-    for _k, _v in row.items():
-        _kn = _k.encode('ascii','ignore').decode('ascii').upper().replace(' ','')
-        if 'NGAY' in _kn and 'DANG' in _kn and 'GIO' not in _kn and 'STATUS' not in _kn:
-            ngay_dang = str(_v).strip(); break
+    loai_anh = str(row.get("FORMAT", "") or row.get("Status ảnh", "") or row.get("Status anh", "")).strip().lower()
+    gio_dang  = str(row.get("GIỜ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
+    ngay_dang = str(row.get("NGÀY ĐĂNG", "") or row.get("NGAY DANG", "")).strip()
     row_num  = i + 4
     headers  = list(row.keys())
 
-    if status in ("Da dang",):
+    if status in ("Đã đăng", "Da dang"):
         continue
 
     if loai_anh not in ("banner", "infographic"):
@@ -507,10 +503,10 @@ for i, row in enumerate(records):
     if status != "Test ngay":
         if ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour:
             continue
-        if status not in ("Chua lam",):
+        if status not in ("Chưa làm", "Chua lam"):
             continue
 
-    tieu_de = str(row.get("TIÃU Äá» BÃI", "") or row.get("TIEU DE BAI", "") or row.get("Tieu de", "") or row.get("TIEU DE", "")).strip()
+    tieu_de = str(row.get("TIÊU ĐỀ BÀI", "") or row.get("TIEU DE BAI", "") or row.get("Tieu de", "") or row.get("TIEU DE", "")).strip()
     if not tieu_de:
         for key in headers:
             kl = key.lower()

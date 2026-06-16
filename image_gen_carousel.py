@@ -83,8 +83,8 @@ JSON schema bat buoc:
       "content": {
         "headline": "<CTA headline 2-3 dong>",
         "subtext": "<cau ket 1-2 dong>",
-        "cta": "Inbox Äá» nháº­n tÆ° váº¥n nguá»n hÃ ng",
-        "footer": "AKANO - NGUá»N HÃNG KINH DOANH - akano.vn - 0988.198.158"
+        "cta": "Inbox Để nhận tư vấn nguồn hàng",
+        "footer": "AKANO - NGUỒN HÀNG KINH DOANH - akano.vn - 0988.198.158"
       }
     }
   ]
@@ -115,13 +115,13 @@ S4 Tip Card      -> khi la meo, checklist, huong dan thuc chien (co bullet point
 
 OUTPUT JSON SCHEMA (chi 1 slide):
 
-S1: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S1","content":{"quote":"<insight 2-8 tu x 1-3 dong, dung \\n>","attribution":"â AKANO Â· Nguá»n hÃ ng kinh doanh"}}]}
+S1: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S1","content":{"quote":"<insight 2-8 tu x 1-3 dong, dung \\n>","attribution":"— AKANO · Nguồn hàng kinh doanh"}}]}
 
-S2: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S2","content":{"title":"<2-3 dong Title Case, dung \\n>","body":["<doan 1>","<doan 2>","<doan 3>"],"cta":"Inbox Äá» chia sáº» thÃªm"}}]}
+S2: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S2","content":{"title":"<2-3 dong Title Case, dung \\n>","body":["<doan 1>","<doan 2>","<doan 3>"],"cta":"Inbox Để chia sẻ thêm"}}]}
 
 S3: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S3","content":{"label":"<LABEL CAPS>","big_number":"<max 8 ky tu>","caption":"<3-6 tu>","subtext":"<12-18 tu>"}}]}
 
-S4: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S4","content":{"label":"<LABEL CAPS>","headline":"<2 dong Title Case, dung \\n>","items":["<item 1>","<item 2>","<item 3>"],"cta":"Inbox Äá» Akano tÆ° váº¥n"}}]}
+S4: {"topic":"<slug>","output_dir":"output/<slug>","caption":"<giu nguyen>","hashtags":["akano"],"slides":[{"layout":"S4","content":{"label":"<LABEL CAPS>","headline":"<2 dong Title Case, dung \\n>","items":["<item 1>","<item 2>","<item 3>"],"cta":"Inbox Để Akano tư vấn"}}]}
 
 Quy tac chung:
 - Chi tra ve JSON thuan, khong giai thich
@@ -231,31 +231,27 @@ today_str    = _now.strftime("%d/%m/%Y")
 print("[INFO] Gio Viet Nam: " + current_time)
 
 for i, row in enumerate(records):
-    loai_anh = str(row.get("Status áº£nh", "") or row.get("Status anh", "") or row.get("STATUS ANH", "")).strip().lower()
+    loai_anh = str(row.get("Status ảnh", "") or row.get("Status anh", "") or row.get("STATUS ANH", "")).strip().lower()
 
     is_carousel = loai_anh in CAROUSEL_FORMATS
     is_single   = loai_anh in SINGLE_FORMATS
     if not is_carousel and not is_single:
         continue
 
-    status   = str(row.get("STATUS", "")).strip()
-    gio_dang = str(row.get("GIá» ÄÄNG", "") or row.get("GIO DANG", "")).strip()
-    ngay_dang = ""
-    for _k, _v in row.items():
-        _kn = _k.encode('ascii','ignore').decode('ascii').upper().replace(' ','')
-        if 'NGAY' in _kn and 'DANG' in _kn and 'GIO' not in _kn and 'STATUS' not in _kn:
-            ngay_dang = str(_v).strip(); break
+    status    = str(row.get("STATUS", "")).strip()
+    gio_dang  = str(row.get("GIỜ ĐĂNG", "") or row.get("GIO DANG", "")).strip()
+    ngay_dang = str(row.get("NGÀY ĐĂNG", "") or row.get("NGAY DANG", "")).strip()
 
-    if status in ("ÄÃ£ ÄÄng", "Da dang"):
+    if status in ("Đã đăng", "Da dang"):
         continue
     if status == "Test ngay":
         pass
-    elif ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour or status not in ("Chua lam", "ChÆ°a lÃ m"):
+    elif ngay_dang != today_str or int(gio_dang.split(':')[0]) != current_hour or status not in ("Chưa làm", "Chua lam"):
         continue
 
     row_num = i + 4
-    tieu_de = str(row.get("TIÃu Äá» BÃI", "") or row.get("TIEU DE BAI", "")).strip()
-    caption = str(row.get("CAPTION Äáº¦Y Äá»¦", "") or row.get("CAPTION DAY DU", "")).strip()
+    tieu_de = str(row.get("TIÊU ĐỀ BÀI", "") or row.get("TIEU DE BAI", "")).strip()
+    caption = str(row.get("CAPTION ĐẦY ĐỦ", "") or row.get("CAPTION DAY DU", "")).strip()
     headers = list(row.keys())
 
     if not caption:
